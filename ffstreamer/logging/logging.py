@@ -99,7 +99,7 @@ DEFAULT_LOGGING_CONFIG = {
             "class": "logging.FileHandler",
             "level": "DEBUG",
             "formatter": "default",
-            "filename": "recc.log",
+            "filename": "default.log",
             "mode": "a",
             "encoding": "utf-8",
             "delay": False,

@@ -3,7 +3,10 @@
 
 asctime
 datefmt
+ffmpeg
+fmpeg
 levelname
 meipass
 nocov
 pythonpath
+tznow
