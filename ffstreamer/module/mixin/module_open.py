@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from inspect import iscoroutinefunction
-from typing import Optional
+from typing import Optional, Tuple, Union
 
 from ffstreamer.module.errors import (
     ModuleCallbackInvalidStateError,
@@ -9,6 +9,8 @@ from ffstreamer.module.errors import (
 )
 from ffstreamer.module.mixin._module_base import ModuleBase
 from ffstreamer.module.variables import NAME_ON_CLOSE, NAME_ON_FRAME, NAME_ON_OPEN
+
+OnFrameResultType = Optional[Union[bytes, Tuple[str, bytes]]]
 
 
 class ModuleOpen(ModuleBase):
@@ -56,7 +58,7 @@ class ModuleOpen(ModuleBase):
         else:
             self._opened = True
 
-    async def on_frame(self, pipe: str, data: bytes) -> Optional[bytes]:
+    async def on_frame(self, pipe: int, data: bytes) -> Optional[bytes]:
         if not self._opened:
             self._raise_invalid_state(NAME_ON_FRAME, "Not opened")
 

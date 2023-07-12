@@ -3,7 +3,7 @@
 from sys import exit as sys_exit
 from typing import Callable, List, Optional
 
-from ffstreamer.apps.default import default_main
+from ffstreamer.apps.default import main as default_main
 from ffstreamer.arguments import get_default_arguments
 from ffstreamer.logging.logging import (
     SEVERITY_NAME_DEBUG,
@@ -12,6 +12,7 @@ from ffstreamer.logging.logging import (
     set_root_level,
     set_simple_logging_config,
 )
+from ffstreamer.module.module_printer import print_modules
 
 
 def main(
@@ -47,6 +48,15 @@ def main(
         set_root_level(severity)
 
     logger.debug(f"Arguments: {args}")
+
+    module_prefix = args.module_prefix
+    module_list = args.list
+    assert isinstance(module_prefix, str)
+    assert isinstance(module_list, bool)
+
+    if module_list:
+        print_modules(module_prefix, verbose, printer)
+        return 0
 
     try:
         return default_main(args, printer=printer)

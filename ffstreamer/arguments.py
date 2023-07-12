@@ -5,12 +5,14 @@ from functools import lru_cache
 from typing import Final, List, Optional
 
 from ffstreamer.logging.logging import SEVERITIES, SEVERITY_NAME_INFO
+from ffstreamer.module.module import MODULE_NAME_PREFIX
 
 PROG: Final[str] = "ffstreamer"
 DESCRIPTION: Final[str] = "FFmpeg Streamer"
 EPILOG: Final[str] = ""
 
 DEFAULT_SEVERITY: Final[str] = SEVERITY_NAME_INFO
+DEFAULT_MODULE_PREFIX: Final[str] = MODULE_NAME_PREFIX
 
 
 @lru_cache
@@ -68,6 +70,60 @@ def default_argument_parser() -> ArgumentParser:
         "-V",
         action="version",
         version=version(),
+    )
+
+    # --------------
+    # Module options
+    # --------------
+
+    parser.add_argument(
+        "--module-prefix",
+        metavar="prefix",
+        default=DEFAULT_MODULE_PREFIX,
+        help=f"The prefix of the module (default: '{DEFAULT_MODULE_PREFIX}')",
+    )
+    parser.add_argument(
+        "--list",
+        "-l",
+        action="store_true",
+        default=False,
+        help="Prints a list of available modules",
+    )
+
+    # --------------
+    # FFmpeg options
+    # --------------
+
+    parser.add_argument(
+        "--ffmpeg-path",
+        default="ffmpeg",
+        help="FFmpeg command path",
+    )
+    parser.add_argument(
+        "-i",
+        action="append",
+        nargs="*",
+        default=list(),
+        help="List of FFmpeg input command lines",
+    )
+    parser.add_argument(
+        "-o",
+        action="append",
+        nargs="*",
+        default=list(),
+        help="List of FFmpeg output command lines",
+    )
+
+    # -----------
+    # I/O options
+    # -----------
+
+    parser.add_argument(
+        "--map",
+        "-m",
+        action="append",
+        default=list(),
+        help="Stream Mapping (format is 'i:o')",
     )
 
     parser.add_argument(
