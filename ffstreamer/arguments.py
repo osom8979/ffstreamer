@@ -100,6 +100,11 @@ def default_argument_parser() -> ArgumentParser:
         help="FFmpeg command path",
     )
     parser.add_argument(
+        "--ffprobe-path",
+        default="ffprobe",
+        help="FFprobe command path",
+    )
+    parser.add_argument(
         "-i",
         action="append",
         nargs="*",
@@ -123,7 +128,7 @@ def default_argument_parser() -> ArgumentParser:
         "-m",
         action="append",
         default=list(),
-        help="Stream Mapping (format is 'i:o')",
+        help="Stream Mapping (format is 'i:[vasdt]:o')",
     )
 
     parser.add_argument(

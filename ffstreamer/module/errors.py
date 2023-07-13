@@ -50,6 +50,16 @@ class ModuleCallbackInvalidStateError(ModuleCallbackError):
         super().__init__(plugin, callback, message)
 
 
+class ModuleCallbackAlreadyStateError(ModuleCallbackInvalidStateError):
+    def __init__(self, plugin: str, callback: str):
+        super().__init__(plugin, callback, "Already state")
+
+
+class ModuleCallbackNotReadyStateError(ModuleCallbackInvalidStateError):
+    def __init__(self, plugin: str, callback: str):
+        super().__init__(plugin, callback, "Not ready state")
+
+
 class ModuleCallbackNotFoundError(ModuleCallbackError):
     def __init__(self, plugin: str, callback: str):
         super().__init__(plugin, callback, "Callback not found")

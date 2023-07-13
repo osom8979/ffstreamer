@@ -4,7 +4,9 @@ from inspect import iscoroutinefunction
 from typing import Optional, Tuple, Union
 
 from ffstreamer.module.errors import (
-    ModuleCallbackInvalidStateError,
+    ModuleCallbackAlreadyStateError,
+    ModuleCallbackNotFoundError,
+    ModuleCallbackNotReadyStateError,
     ModuleCallbackRuntimeError,
 )
 from ffstreamer.module.mixin._module_base import ModuleBase
@@ -38,21 +40,18 @@ class ModuleOpen(ModuleBase):
     def has_on_close(self) -> bool:
         return self.has(NAME_ON_CLOSE)
 
-    def _raise_invalid_state(self, callback: str, detail: str) -> None:
-        raise ModuleCallbackInvalidStateError(self.module_name, callback, detail)
-
-    async def on_open(self) -> None:
+    async def on_open(self, *args: str) -> None:
         if self._opened:
-            self._raise_invalid_state(NAME_ON_OPEN, "Already opened")
+            raise ModuleCallbackAlreadyStateError(self.module_name, NAME_ON_OPEN)
 
         callback = self.get(NAME_ON_OPEN)
 
         try:
             if callback is not None:
                 if iscoroutinefunction(callback):
-                    await callback()
+                    await callback(*args)
                 else:
-                    callback()
+                    callback(*args)
         except BaseException as e:
             raise ModuleCallbackRuntimeError(self.module_name, NAME_ON_OPEN) from e
         else:
@@ -60,9 +59,12 @@ class ModuleOpen(ModuleBase):
 
     async def on_frame(self, pipe: int, data: bytes) -> Optional[bytes]:
         if not self._opened:
-            self._raise_invalid_state(NAME_ON_FRAME, "Not opened")
+            raise ModuleCallbackNotReadyStateError(self.module_name, NAME_ON_FRAME)
 
         callback = self.get(NAME_ON_FRAME)
+        if callback is None:
+            raise ModuleCallbackNotFoundError(self.module_name, NAME_ON_FRAME)
+
         if iscoroutinefunction(callback):
             return await callback(pipe, data)
         else:
@@ -70,7 +72,7 @@ class ModuleOpen(ModuleBase):
 
     async def on_close(self) -> None:
         if not self._opened:
-            self._raise_invalid_state(NAME_ON_CLOSE, "Not opened")
+            raise ModuleCallbackNotReadyStateError(self.module_name, NAME_ON_CLOSE)
 
         callback = self.get(NAME_ON_CLOSE)
 

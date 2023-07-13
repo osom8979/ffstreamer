@@ -7,7 +7,7 @@ __doc__ = "Documentation"
 
 
 async def on_open(*args) -> None:
-    assert args is not None
+    assert isinstance(args, list)
 
 
 async def on_frame(pipe: str, data: bytes) -> Optional[bytes]:

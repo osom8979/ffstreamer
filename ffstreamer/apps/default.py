@@ -8,34 +8,37 @@ from typing import Callable
 class DefaultApp:
     def __init__(self, args: Namespace):
         self.ffmpeg_path = args.ffmpeg_path
+        self.ffprobe_path = args.ffprobe_path
         self.ffmpeg_inputs = args.i
         self.ffmpeg_outputs = args.o
         self.stream_maps = args.map
         self.debug = args.debug
         self.verbose = args.verbose
-        self.module = args.module
+        self.module_name = args.module
         self.opts = args.opts
 
         assert isinstance(self.ffmpeg_path, str)
+        assert isinstance(self.ffprobe_path, str)
         assert isinstance(self.ffmpeg_inputs, list)
         assert isinstance(self.ffmpeg_outputs, list)
         assert isinstance(self.stream_maps, list)
         assert isinstance(self.debug, bool)
         assert isinstance(self.verbose, int)
-        assert isinstance(self.module, str)
+        assert isinstance(self.module_name, str)
         assert isinstance(self.opts, list)
 
     def get_argument_info(self) -> str:
         buffer = StringIO()
-        buffer.write("Default Application Arguments:\n")
-        buffer.write(f"-ffmpeg_path: '{self.ffmpeg_path}'\n")
-        buffer.write(f"-ffmpeg_inputs: {self.ffmpeg_inputs}\n")
-        buffer.write(f"-ffmpeg_outputs: {self.ffmpeg_outputs}\n")
-        buffer.write(f"-stream_maps: {self.stream_maps}\n")
-        buffer.write(f"-debug: {self.debug}\n")
-        buffer.write(f"-verbose: {self.verbose}\n")
-        buffer.write(f"-module: '{self.module}'\n")
-        buffer.write(f"-opts: {self.opts}\n")
+        buffer.write("Default Application Arguments:")
+        buffer.write(f"\n - FFmpeg path: '{self.ffmpeg_path}'")
+        buffer.write(f"\n - FFprobe path: '{self.ffprobe_path}'")
+        buffer.write(f"\n - FFmpeg input commands: {self.ffmpeg_inputs}")
+        buffer.write(f"\n - Ffmpeg output commands: {self.ffmpeg_outputs}")
+        buffer.write(f"\n - Stream maps: {self.stream_maps}")
+        buffer.write(f"\n - Debug flag: {self.debug}")
+        buffer.write(f"\n - Verbose level: {self.verbose}")
+        buffer.write(f"\n - Module name: '{self.module_name}'")
+        buffer.write(f"\n - Module arguments: {self.opts}")
         return buffer.getvalue()
 
     def run(self, printer: Callable[..., None] = print) -> int:

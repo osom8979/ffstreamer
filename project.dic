@@ -4,9 +4,12 @@
 asctime
 datefmt
 ffmpeg
+ffprobe
 fmpeg
+fprobe
 levelname
 meipass
 nocov
 pythonpath
 tznow
+vasdt
