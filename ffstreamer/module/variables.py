@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 MODULE_NAME_PREFIX = "ffstreamer_"
+MODULE_PIPE_SEPARATOR = "!"
 
 NAME_ON_OPEN = "on_open"
 NAME_ON_CLOSE = "on_close"

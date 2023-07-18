@@ -10,6 +10,7 @@ from logging import (
     WARN,
     WARNING,
     Formatter,
+    Logger,
     StreamHandler,
 )
 from logging import config as logging_config
@@ -114,8 +115,16 @@ DEFAULT_LOGGING_CONFIG = {
 }
 
 DEFAULT_LOGGER_NAME = "ffstreamer"
+DEFAULT_LOGGER_INPUT_NAME = "ffstreamer.input"
+DEFAULT_LOGGER_OUTPUT_NAME = "ffstreamer.output"
 
 logger = getLogger(DEFAULT_LOGGER_NAME)
+input_logger = getLogger(DEFAULT_LOGGER_INPUT_NAME)
+output_logger = getLogger(DEFAULT_LOGGER_OUTPUT_NAME)
+
+
+def get_module_logger(name: str) -> Logger:
+    return getLogger(f"ffstreamer.module.{name}")
 
 
 def convert_level_number(level: Optional[Union[str, int]] = None) -> int:

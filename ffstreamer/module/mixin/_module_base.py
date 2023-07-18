@@ -7,6 +7,7 @@ from sys import modules as sys_modules
 from types import ModuleType
 from typing import Any, Optional, TypeVar
 
+from ffstreamer.logging.logging import Logger, get_module_logger
 from ffstreamer.package.package_utils import get_module_directory
 
 _T = TypeVar("_T")
@@ -50,6 +51,10 @@ class ModuleBase(metaclass=ABCMeta):
     def module_name(self) -> str:
         assert self._module is not None
         return self._module.__name__
+
+    @property
+    def logger(self) -> Logger:
+        return get_module_logger(self.module_name)
 
     def __repr__(self) -> str:
         return f"<ModuleBase[{self.module_name}]>"

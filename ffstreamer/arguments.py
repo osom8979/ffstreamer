@@ -4,12 +4,25 @@ from argparse import REMAINDER, ArgumentParser, Namespace, RawDescriptionHelpFor
 from functools import lru_cache
 from typing import Final, List, Optional
 
+from ffstreamer.ffmpeg.ffmpeg import (
+    DEFAULT_FFMPEG_INPUT_FORMAT,
+    DEFAULT_FFMPEG_OUTPUT_FORMAT,
+)
 from ffstreamer.logging.logging import SEVERITIES, SEVERITY_NAME_INFO
-from ffstreamer.module.module import MODULE_NAME_PREFIX
+from ffstreamer.module.variables import MODULE_NAME_PREFIX, MODULE_PIPE_SEPARATOR
 
 PROG: Final[str] = "ffstreamer"
 DESCRIPTION: Final[str] = "FFmpeg Streamer"
-EPILOG: Final[str] = ""
+EPILOG = f"""
+Examples:
+
+  Debugging options:
+    $ {PROG} -c -d -vv ...
+
+  RTSP to RTSP:
+    $ {PROG} "rtsp://ip-camera/stream" rtsp "rtsp://localhost:8554/stream"
+"""
+
 
 DEFAULT_SEVERITY: Final[str] = SEVERITY_NAME_INFO
 DEFAULT_MODULE_PREFIX: Final[str] = MODULE_NAME_PREFIX
@@ -105,42 +118,54 @@ def default_argument_parser() -> ArgumentParser:
         help="FFprobe command path",
     )
     parser.add_argument(
+        "--input",
         "-i",
-        action="append",
-        nargs="*",
-        default=list(),
-        help="List of FFmpeg input command lines",
+        default=DEFAULT_FFMPEG_INPUT_FORMAT,
+        help=(
+            "Commandline arguments of the FFmpeg input pipeline"
+            f" (Default is '{DEFAULT_FFMPEG_INPUT_FORMAT}')"
+        ),
     )
     parser.add_argument(
+        "--input-channels",
+        type=int,
+        default=3,
+        help="Number of channels to pipeline",
+    )
+    parser.add_argument(
+        "--output",
         "-o",
-        action="append",
-        nargs="*",
-        default=list(),
-        help="List of FFmpeg output command lines",
+        default=DEFAULT_FFMPEG_OUTPUT_FORMAT,
+        help=(
+            "Commandline arguments of the FFmpeg output pipeline"
+            f" (Default is '{DEFAULT_FFMPEG_OUTPUT_FORMAT}')"
+        ),
     )
-
-    # -----------
-    # I/O options
-    # -----------
-
     parser.add_argument(
-        "--map",
-        "-m",
-        action="append",
-        default=list(),
-        help="Stream Mapping (format is 'i:[vasdt]:o')",
+        "--preview",
+        "-p",
+        action="store_true",
+        default=False,
+        help="Display the preview window",
     )
 
     parser.add_argument(
-        "module",
-        default=None,
-        nargs="?",
-        help="Module name",
+        "source",
+        help="Input source URL",
     )
+    parser.add_argument(
+        "format",
+        help="Output file format",
+    )
+    parser.add_argument(
+        "destination",
+        help="Output URL",
+    )
+
     parser.add_argument(
         "opts",
         nargs=REMAINDER,
-        help="Arguments of module",
+        help=f"Module pipelines (Module pipe separator is '{MODULE_PIPE_SEPARATOR}')",
     )
 
     return parser

@@ -1,15 +1,23 @@
 # IDEA plugin: Dictionary
 # https://plugins.jetbrains.com/plugin/12089-dictionary
 
+adts
 asctime
 datefmt
+demuxing
+dostr
 ffmpeg
 ffprobe
 fmpeg
 fprobe
 levelname
 meipass
+muxing
 nocov
+paletted
 pythonpath
+rawvideo
 tznow
 vasdt
+vcodec
+yuyv
