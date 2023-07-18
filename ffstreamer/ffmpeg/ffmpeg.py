@@ -13,6 +13,7 @@ DEFAULT_FFMPEG_INPUT_FORMAT: Final[str] = (
     # global options
     "-hide_banner "
     # infile options
+    "-fflags nobuffer -flags low_delay "
     "-i {src} "
     # outfile options
     "-f image2pipe -pix_fmt bgr24 -vcodec rawvideo pipe:1"
@@ -23,7 +24,10 @@ DEFAULT_FFMPEG_OUTPUT_FORMAT: Final[str] = (
     # infile options
     "-f rawvideo -pix_fmt bgr24 -s {width}x{height} -i pipe:0 "
     # outfile options
-    "-c:v libx264 -f {format} {dest}"
+    "-c:v libx264 "
+    "-preset ultrafast "
+    "-crf 30 "
+    "-f {format} {dest}"
 )
 # fmt: on
 

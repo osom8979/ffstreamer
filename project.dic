@@ -6,6 +6,7 @@ asctime
 datefmt
 demuxing
 dostr
+fflags
 ffmpeg
 ffprobe
 fmpeg
@@ -13,6 +14,7 @@ fprobe
 levelname
 meipass
 muxing
+nobuffer
 nocov
 paletted
 pythonpath

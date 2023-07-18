@@ -139,21 +139,25 @@ class DefaultApp:
 
     async def _read_ffmpeg_input_stdout(self) -> None:
         assert self.ffmpeg_input_process is not None
-        assert self.ffmpeg_output_process is not None
         stream_reader = self.ffmpeg_input_process.stdout
-        stream_writer = self.ffmpeg_output_process.stdin
         assert stream_reader is not None
-        assert stream_writer is not None
 
         frame_index = 0
         frame_index_step = 100
 
         try:
+            input_logger.debug("Start recv frame ...")
             while not stream_reader.at_eof():
                 buffer = await stream_reader.readexactly(self._frame_buffer_size)
                 for module in self._modules:
                     buffer = await module.frame(buffer)
-                stream_writer.write(buffer)
+
+                # ----------------------------------------------------------------------
+                # [WARNING]
+                # Don't assert or save to another variable, just use stdin directly!
+                self.ffmpeg_output_process.stdin.write(buffer)  # type: ignore[union-attr] # noqa
+                # ----------------------------------------------------------------------
+
                 if frame_index % frame_index_step == 0:
                     input_logger.debug(f"Recv frame #{frame_index} ...")
                 frame_index += 1
@@ -164,7 +168,12 @@ class DefaultApp:
         except BaseException as unknown_error:
             input_logger.exception(unknown_error)
         finally:
-            await stream_writer.drain()
+            # --------------------------------------------------------------------------
+            # [WARNING]
+            # Don't assert or save to another variable, just use stdin directly!
+            await self.ffmpeg_output_process.stdin.drain()  # type: ignore[union-attr]
+            # --------------------------------------------------------------------------
+
             input_logger.debug(f"Frame reader is complete: total {frame_index}")
 
     @staticmethod
