@@ -1,2 +1,2 @@
 coloredlogs>=15.0.1
-numpy>=1.25.1
+static-ffmpeg>=2.5

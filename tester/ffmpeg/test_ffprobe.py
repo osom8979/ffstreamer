@@ -1,27 +1,11 @@
 # -*- coding: utf-8 -*-
 
 import os
-from contextlib import contextmanager
-from copy import deepcopy
 from unittest import TestCase, main
 
-from static_ffmpeg import add_paths, run
-
 from ffstreamer.ffmpeg.ffprobe import inspect_source
+from ffstreamer.ffmpeg.static_lib import StaticFFmpegPaths
 from tester.ffmpeg.assets import get_big_buck_bunny_trailer_path
-
-
-@contextmanager
-def use_static_ffprobe():
-    original_path = deepcopy(os.environ["PATH"])
-    try:
-        add_paths()
-        ffmpeg_path, ffprobe_path = run.get_or_fetch_platform_executables_else_raise()
-        assert ffmpeg_path is not None
-        assert ffprobe_path is not None
-        yield ffprobe_path
-    finally:
-        os.environ["PATH"] = original_path
 
 
 class FFprobeTestCase(TestCase):
@@ -29,10 +13,10 @@ class FFprobeTestCase(TestCase):
         video_path = get_big_buck_bunny_trailer_path()
         self.assertTrue(os.path.isfile(video_path))
 
-        with use_static_ffprobe() as ffprobe_path:
-            self.assertTrue(os.path.isfile(ffprobe_path))
+        with StaticFFmpegPaths() as paths:
+            self.assertTrue(os.path.isfile(paths.ffprobe_path))
 
-            inspect_result = inspect_source(video_path, ffprobe_path)
+            inspect_result = inspect_source(video_path, paths.ffprobe_path)
             self.assertIsInstance(inspect_result, dict)
 
             streams = inspect_result["streams"]
