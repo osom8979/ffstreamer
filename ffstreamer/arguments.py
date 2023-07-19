@@ -142,6 +142,12 @@ def default_argument_parser() -> ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--format",
+        "-f",
+        default="auto",
+        help="Output file format",
+    )
+    parser.add_argument(
         "--preview",
         "-p",
         action="store_true",
@@ -152,10 +158,6 @@ def default_argument_parser() -> ArgumentParser:
     parser.add_argument(
         "source",
         help="Input source URL",
-    )
-    parser.add_argument(
-        "format",
-        help="Output file format",
     )
     parser.add_argument(
         "destination",

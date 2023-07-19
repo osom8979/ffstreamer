@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 
+from os import path
 from subprocess import check_output
 from typing import Final, List, NamedTuple
+from urllib.parse import urlparse
 
 BGR24_CHANNELS: Final[int] = 3
 MINIMUM_REALTIME_FRAMES: Final[int] = 12
@@ -140,7 +142,9 @@ def inspect_file_formats(ffmpeg_path="ffmpeg") -> List[FileFormat]:
     for line in lines:
         supported_demuxing = line[1] == "D"
         supported_muxing = line[2] == "E"
-        name, desc = line[4:].split(maxsplit=1)
+        name_desc = line[4:].split(maxsplit=1)
+        name = name_desc[0]
+        desc = name_desc[1] if len(name_desc) == 2 else str()
         fmt = FileFormat(
             supported_demuxing=supported_demuxing,
             supported_muxing=supported_muxing,
@@ -149,6 +153,22 @@ def inspect_file_formats(ffmpeg_path="ffmpeg") -> List[FileFormat]:
         )
         result.append(fmt)
     return result
+
+
+def detect_file_format(url: str, ffmpeg_path="ffmpeg") -> str:
+    file_formats = inspect_file_formats(ffmpeg_path)
+    o = urlparse(url)
+
+    if o.scheme:
+        try:
+            file_format = next(filter(lambda f: o.scheme == f.name, file_formats))
+        except StopIteration:
+            pass
+        else:
+            return file_format.name
+
+    ext = path.splitext(url)[1]
+    return ext[1:] if ext[0] == "." else ext
 
 
 def calc_recommend_buffer_size(

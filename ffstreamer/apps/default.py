@@ -5,7 +5,8 @@ from asyncio import run as asyncio_run
 from asyncio.exceptions import CancelledError
 from typing import Callable, List, Optional
 
-from ffstreamer.argparse.argument import argument_splitter
+from ffstreamer.argparse.argument_utils import argument_splitter
+from ffstreamer.ffmpeg.ffmpeg import detect_file_format, inspect_pix_fmts
 from ffstreamer.ffmpeg.ffmpeg_receiver import FFmpegReceiver
 from ffstreamer.ffmpeg.ffmpeg_sender import FFmpegSender
 from ffstreamer.ffmpeg.ffprobe import inspect_source_size
@@ -44,6 +45,11 @@ class DefaultApp:
         self._opts = args.opts
         self._debug = args.debug
         self._verbose = args.verbose
+
+        self._pix_fmts = inspect_pix_fmts(self._ffmpeg_path)
+
+        if self._format.lower() == "auto":
+            self._format = detect_file_format(self._destination, self._ffmpeg_path)
 
         logger.debug(f"Inspect the source size '{self._source}' ...")
         w, h = inspect_source_size(self._source, self._ffprobe_path)
