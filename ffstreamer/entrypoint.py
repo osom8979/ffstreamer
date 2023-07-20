@@ -65,9 +65,9 @@ def main(
     logger.debug(f"Arguments: {args}")
 
     assert isinstance(args.module_prefix, str)
-    assert isinstance(args.use_static_ffmpeg, bool)
     assert isinstance(args.ffmpeg_path, str)
     assert isinstance(args.ffprobe_path, str)
+    assert isinstance(args.use_static_ffmpeg, bool)
 
     static_lib = StaticFFmpegPaths()
     if args.use_static_ffmpeg:

@@ -3,7 +3,13 @@
 from argparse import Namespace
 from asyncio import run as asyncio_run
 from asyncio.exceptions import CancelledError
+from sys import version_info
 from typing import Callable, Optional
+
+if version_info >= (3, 11):
+    from asyncio import Runner  # type: ignore[attr-defined]
+
+import uvloop
 
 from ffstreamer.argparse.argument_utils import argument_splitter
 from ffstreamer.ffmpeg.ffmpeg import (
@@ -38,6 +44,7 @@ class RunApp:
         module_prefix=MODULE_NAME_PREFIX,
         pipe_separator=MODULE_PIPE_SEPARATOR,
         frame_logging_step=100,
+        use_uvloop=False,
         preview=False,
         debug=False,
         verbose=0,
@@ -95,6 +102,7 @@ class RunApp:
             ffmpeg_path=ffmpeg_path,
         )
 
+        self._use_uvloop = use_uvloop
         self._preview = preview
         self._debug = debug
         self._verbose = verbose
@@ -135,7 +143,15 @@ class RunApp:
 
     def run(self) -> int:
         try:
-            asyncio_run(self.run_until_complete())
+            if self._use_uvloop:
+                if version_info >= (3, 11):
+                    with Runner(loop_factory=uvloop.new_event_loop) as runner:
+                        runner.run(self.run_until_complete())
+                else:
+                    uvloop.install()
+                    asyncio_run(self.run_until_complete())
+            else:
+                asyncio_run(self.run_until_complete())
         except KeyboardInterrupt:
             logger.warning("An interrupt signal was detected")
             return 0
@@ -181,6 +197,7 @@ def run_main(args: Namespace, printer: Callable[..., None] = print) -> int:
     assert isinstance(args.ffprobe_path, str)
     assert isinstance(args.module_prefix, str)
     assert isinstance(args.pipe_separator, str)
+    assert isinstance(args.use_uvloop, bool)
     assert isinstance(args.preview, bool)
     assert isinstance(args.debug, bool)
     assert isinstance(args.verbose, int)
@@ -198,6 +215,7 @@ def run_main(args: Namespace, printer: Callable[..., None] = print) -> int:
         module_prefix=args.module_prefix,
         pipe_separator=args.pipe_separator,
         frame_logging_step=100,
+        use_uvloop=args.use_uvloop,
         preview=args.preview,
         debug=args.debug,
         verbose=args.verbose,

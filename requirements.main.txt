@@ -1,3 +1,4 @@
 coloredlogs
 static-ffmpeg
 numpy
+uvloop

@@ -313,6 +313,12 @@ def default_argument_parser() -> ArgumentParser:
         default=False,
         help="Use the binaries from the static-ffmpeg package",
     )
+    parser.add_argument(
+        "--use-uvloop",
+        action="store_true",
+        default=False,
+        help="Replace the event loop with uvloop",
+    )
 
     subparsers = parser.add_subparsers(dest="cmd")
     add_pixels_parser(subparsers)
