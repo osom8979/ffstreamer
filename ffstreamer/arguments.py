@@ -77,6 +77,39 @@ Examples:
 
   Bypass from RTSP to RTSP.
     $ {PROG} {CMD_RUN} "rtsp://ip-camera/stream" "rtsp://localhost:8554/stream"
+
+Demonstration:
+
+  Run the RTSP source for testing:
+    $ docker run --rm -it \\
+        -e ENABLE_TIME_OVERLAY=true \\
+        -e RTSP_PORT=9999 \\
+        -p 9999:9999 \\
+        ullaakut/rtspatt
+
+  Run an RTSP proxy server:
+    $ docker run --rm -it \\
+        -e MTX_PROTOCOLS=tcp \\
+        -p 8554:8554 \\
+        -p 1935:1935 \\
+        -p 8888:8888 \\
+        -p 8889:8889 \\
+        bluenviron/mediamtx
+
+  Run {PROG}:
+    $ {PROG} -c -d -vv {CMD_RUN} \\
+        rtsp://localhost:9999/live.sdp \\
+        rtsp://localhost:8554/stream
+
+  Play the resulting stream:
+    $ ffplay \\
+        -fflags nobuffer \\
+        -fflags discardcorrupt \\
+        -flags low_delay \\
+        -framedrop \\
+        -avioflags direct \\
+        -rtsp_transport tcp \\
+        rtsp://localhost:8554/stream
 """
 
 CMDS = (CMD_PIXELS, CMD_FILES, CMD_MODULES, CMD_LIST, CMD_INSPECT, CMD_RUN)
@@ -264,12 +297,6 @@ def default_argument_parser() -> ArgumentParser:
     )
 
     parser.add_argument(
-        "--use-static-ffmpeg",
-        action="store_true",
-        default=False,
-        help="Use the binaries from the static-ffmpeg package",
-    )
-    parser.add_argument(
         "--ffmpeg-path",
         default="ffmpeg",
         help="FFmpeg command path",
@@ -278,6 +305,12 @@ def default_argument_parser() -> ArgumentParser:
         "--ffprobe-path",
         default="ffprobe",
         help="FFprobe command path",
+    )
+    parser.add_argument(
+        "--use-static-ffmpeg",
+        action="store_true",
+        default=False,
+        help="Use the binaries from the static-ffmpeg package",
     )
 
     subparsers = parser.add_subparsers(dest="cmd")

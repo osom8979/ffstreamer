@@ -17,25 +17,24 @@ DEFAULT_FFMPEG_RECV_FORMAT: Final[str] = (
     "-hide_banner "
     # infile options
     "-fflags nobuffer -flags low_delay "
-    "-i {src} "
+    "-i {source} "
     # outfile options
-    "-f image2pipe -pix_fmt bgr24 -vcodec rawvideo pipe:1"
+    "-f image2pipe -pix_fmt {pixel_format} -vcodec rawvideo pipe:1"
 )
 DEFAULT_FFMPEG_SEND_FORMAT: Final[str] = (
     # global options
     "-hide_banner "
     # infile options
-    "-f rawvideo -pix_fmt bgr24 -s {width}x{height} -i pipe:0 "
+    "-f rawvideo -pix_fmt {pixel_format} -s {width}x{height} -i pipe:0 "
     # outfile options
     "-c:v libx264 "
     "-preset ultrafast "
     "-crf 30 "
-    "-f {format} {dest}"
+    "-f {file_format} {destination}"
 )
 # fmt: on
 
 AUTOMATIC_DETECT_FILE_FORMAT: Final[str] = "auto"
-NONE_FILE_FORMAT: Final[str] = "none"
 
 DEFAULT_PIXEL_FORMAT: Final[str] = "bgr24"
 DEFAULT_FILE_FORMAT: Final[str] = AUTOMATIC_DETECT_FILE_FORMAT
@@ -118,6 +117,19 @@ def inspect_pix_fmts(ffmpeg_path="ffmpeg") -> List[PixFmt]:
     return result
 
 
+def find_pix_fmt(pixel_format: str, ffmpeg_path="ffmpeg") -> PixFmt:
+    pix_fmts = inspect_pix_fmts(ffmpeg_path)
+    filtered_pix_fmts = list(filter(lambda x: x.name == pixel_format, pix_fmts))
+    if not filtered_pix_fmts:
+        raise IndexError(f"Not found pixel format: {pixel_format}")
+    assert len(filtered_pix_fmts) == 1
+    return filtered_pix_fmts[0]
+
+
+def find_bits_per_pixel(pixel_format: str, ffmpeg_path="ffmpeg") -> int:
+    return find_pix_fmt(pixel_format, ffmpeg_path).bits_per_pixel
+
+
 FFMPEG_FILE_FORMATS_HEADER_LINES: Final[int] = 4
 """
 Skip unnecessary header lines in `ffmpeg -hide_banner -formats` command.
@@ -182,19 +194,21 @@ def inspect_file_formats(ffmpeg_path="ffmpeg") -> List[FileFormat]:
 
 
 def detect_file_format(url: str, ffmpeg_path="ffmpeg") -> str:
-    file_formats = inspect_file_formats(ffmpeg_path)
-    o = urlparse(url)
-
-    if o.scheme:
-        try:
-            file_format = next(filter(lambda f: o.scheme == f.name, file_formats))
-        except StopIteration:
-            pass
+    if path.exists(url):
+        ext = path.splitext(url)[1]
+        return ext[1:] if ext[0] == "." else ext
+    else:
+        file_formats = inspect_file_formats(ffmpeg_path)
+        o = urlparse(url)
+        if o.scheme:
+            try:
+                file_format = next(filter(lambda f: o.scheme == f.name, file_formats))
+            except StopIteration:
+                raise IndexError(f"Unsupported URL scheme: {o.scheme}")
+            else:
+                return file_format.name
         else:
-            return file_format.name
-
-    ext = path.splitext(url)[1]
-    return ext[1:] if ext[0] == "." else ext
+            raise NotImplementedError("URL scheme is required")
 
 
 def calc_recommend_buffer_size(

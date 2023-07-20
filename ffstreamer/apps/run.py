@@ -3,7 +3,7 @@
 from argparse import Namespace
 from asyncio import run as asyncio_run
 from asyncio.exceptions import CancelledError
-from typing import Callable, List, Optional
+from typing import Callable, Optional
 
 from ffstreamer.argparse.argument_utils import argument_splitter
 from ffstreamer.ffmpeg.ffmpeg import (
@@ -12,21 +12,18 @@ from ffstreamer.ffmpeg.ffmpeg import (
     DEFAULT_FFMPEG_SEND_FORMAT,
     DEFAULT_FILE_FORMAT,
     DEFAULT_PIXEL_FORMAT,
-    NONE_FILE_FORMAT,
     detect_file_format,
-    inspect_pix_fmts,
+    find_bits_per_pixel,
 )
 from ffstreamer.ffmpeg.ffmpeg_receiver import FFmpegReceiver
 from ffstreamer.ffmpeg.ffmpeg_sender import FFmpegSender
 from ffstreamer.ffmpeg.ffprobe import inspect_source_size
 from ffstreamer.logging.logging import logger
 from ffstreamer.module.module import Module, module_pipeline_splitter
-from ffstreamer.module.variables import MODULE_NAME_PREFIX
+from ffstreamer.module.variables import MODULE_NAME_PREFIX, MODULE_PIPE_SEPARATOR
 
 
 class RunApp:
-    _modules: List[Module]
-
     def __init__(
         self,
         source: str,
@@ -39,90 +36,96 @@ class RunApp:
         ffmpeg_path="ffmpeg",
         ffprobe_path="ffprobe",
         module_prefix=MODULE_NAME_PREFIX,
+        pipe_separator=MODULE_PIPE_SEPARATOR,
+        frame_logging_step=100,
         preview=False,
         debug=False,
         verbose=0,
     ):
-        self._source = source
-        self._destination = destination
-        self._opts = args
-        self._recv_commandline = recv_commandline
-        self._send_commandline = send_commandline
-        self._pixel_format = pixel_format
-        self._file_format = file_format
-        self._ffmpeg_path = ffmpeg_path
-        self._ffprobe_path = ffprobe_path
-        self._module_prefix = module_prefix
-        self._preview = preview
-        self._debug = debug
-        self._verbose = verbose
+        bits_per_pixel = find_bits_per_pixel(pixel_format, ffmpeg_path)
+        if bits_per_pixel % 8 != 0:
+            raise ValueError("The pixel format only supports multiples of 8 bits")
 
-        self._pix_fmts = inspect_pix_fmts(self._ffmpeg_path)
+        if file_format.lower() == AUTOMATIC_DETECT_FILE_FORMAT:
+            file_format = detect_file_format(destination, ffmpeg_path)
 
-        if self._file_format.lower() == AUTOMATIC_DETECT_FILE_FORMAT:
-            self._file_format = detect_file_format(self._destination, self._ffmpeg_path)
-        elif self._file_format.lower() == NONE_FILE_FORMAT:
-            # TODO: Remove format flags
-            pass
+        width, height = inspect_source_size(source, ffprobe_path)
 
-        logger.debug(f"Inspect the source size '{self._source}' ...")
-        width, height = inspect_source_size(self._source, self._ffprobe_path)
-
-        input_channels = 3
-        frame_buffer_size = width * height * input_channels
-        frame_logging_step = 100
+        channels = bits_per_pixel // 8
+        frame_buffer_size = width * height * channels
 
         cmds_kwargs = dict(
-            src=source,
-            dest=destination,
+            source=source,
+            destination=destination,
             width=width,
             height=height,
             pixel_format=pixel_format,
             file_format=file_format,
         )
-        self._recv_arguments = argument_splitter(self._recv_commandline, **cmds_kwargs)
-        self._send_arguments = argument_splitter(self._send_commandline, **cmds_kwargs)
 
-        self._module_pipeline_args = module_pipeline_splitter(*self._opts)
+        recv_arguments = argument_splitter(recv_commandline, **cmds_kwargs)
+        send_arguments = argument_splitter(send_commandline, **cmds_kwargs)
+        pipelines = module_pipeline_splitter(*args, separator=pipe_separator)
+
         self._modules = list()
-
-        self._receiver = FFmpegReceiver(
-            frame_buffer_size,
-            self.on_buffing,
-            *self._recv_arguments,
-            ffmpeg_path=self._ffmpeg_path,
-            frame_logging_step=frame_logging_step,
-        )
-        self._sender = FFmpegSender(
-            *self._send_arguments,
-            ffmpeg_path=self._ffmpeg_path,
-        )
-
-        if self._verbose >= 1:
-            logger.info(f"FFmpeg path: '{self._ffmpeg_path}'")
-            logger.info(f"FFprobe path: '{self._ffprobe_path}'")
-            logger.info(f"Frame buffer size is {frame_buffer_size} bytes")
-            logger.info(f"Source video size is {width}x{height}")
-            logger.info(f"FFmpeg receiver arguments: {self._recv_arguments}")
-            logger.info(f"FFmpeg sender arguments: {self._send_arguments}")
-            logger.info(f"Preview flag: {self._preview}")
-            logger.info(f"Module prefix: '{self._module_prefix}'")
-            logger.info(f"Module pipeline: {self._module_pipeline_args}")
-            logger.info(f"Debug flag: {self._debug}")
-            logger.info(f"Verbose level: {self._verbose}")
-
-    def init_modules(self) -> None:
-        for module_pipeline in self._module_pipeline_args:
-            module_name = self._module_prefix + module_pipeline[0]
-            module_args = module_pipeline[1:]
-
+        for pipeline in pipelines:
+            module_name = module_prefix + pipeline[0]
+            module_args = pipeline[1:]
             logger.debug(f"Initialize module '{module_name}' -> {module_args}")
             self._modules.append(Module(module_name, *module_args))
             logger.info(f"Initialized module '{module_name}'")
 
-    def run(self) -> int:
-        self.init_modules()
+        self._receiver = FFmpegReceiver(
+            frame_buffer_size,
+            self.on_buffing,
+            *recv_arguments,
+            ffmpeg_path=ffmpeg_path,
+            frame_logging_step=frame_logging_step,
+        )
+        self._sender = FFmpegSender(
+            *send_arguments,
+            ffmpeg_path=ffmpeg_path,
+        )
 
+        self._preview = preview
+        self._debug = debug
+        self._verbose = verbose
+
+        logger.info(f"FFmpeg path: '{ffmpeg_path}'")
+        logger.info(f"FFprobe path: '{ffprobe_path}'")
+        logger.info(f"Frame buffer size is {frame_buffer_size} bytes")
+        logger.info(f"Source video size is {width}x{height}")
+        logger.info(f"FFmpeg receiver arguments: {recv_arguments}")
+        logger.info(f"FFmpeg sender arguments: {send_arguments}")
+        logger.info(f"Module prefix: '{module_prefix}'")
+        logger.info(f"Pipe separator: '{pipe_separator}'")
+        logger.info(f"Module pipeline: {pipelines}")
+        logger.info(f"Preview flag: {preview}")
+        logger.info(f"Debug flag: {debug}")
+        logger.info(f"Verbose level: {verbose}")
+
+    @property
+    def preview(self) -> bool:
+        return self._preview
+
+    @property
+    def debug(self) -> bool:
+        return self._debug
+
+    @property
+    def verbose(self) -> int:
+        return self._verbose
+
+    async def on_buffing(self, data: Optional[bytes]) -> None:
+        if data is not None:
+            buffer = data
+            for module in self._modules:
+                buffer = await module.frame(buffer)
+            self._sender.stdin.write(buffer)
+        else:
+            await self._sender.stdin.drain()
+
+    def run(self) -> int:
         try:
             asyncio_run(self.run_until_complete())
         except KeyboardInterrupt:
@@ -133,15 +136,6 @@ class RunApp:
             return 1
         else:
             return 0
-
-    async def on_buffing(self, data: Optional[bytes]) -> None:
-        if data is not None:
-            buffer = data
-            for module in self._modules:
-                buffer = await module.frame(buffer)
-            self._sender.stdin.write(buffer)
-        else:
-            await self._sender.stdin.drain()
 
     async def run_until_complete(self) -> None:
         try:
@@ -171,13 +165,14 @@ def run_main(args: Namespace, printer: Callable[..., None] = print) -> int:
     assert isinstance(args.source, str)
     assert isinstance(args.destination, str)
     assert isinstance(args.opts, list)
-    assert isinstance(args.input, str)
-    assert isinstance(args.output, str)
-    assert isinstance(args.format, str)
+    assert isinstance(args.recv_commandline, str)
+    assert isinstance(args.send_commandline, str)
+    assert isinstance(args.pixel_format, str)
+    assert isinstance(args.file_format, str)
     assert isinstance(args.ffmpeg_path, str)
     assert isinstance(args.ffprobe_path, str)
     assert isinstance(args.module_prefix, str)
-    assert isinstance(args.input_channels, int)
+    assert isinstance(args.pipe_separator, str)
     assert isinstance(args.preview, bool)
     assert isinstance(args.debug, bool)
     assert isinstance(args.verbose, int)
@@ -193,6 +188,8 @@ def run_main(args: Namespace, printer: Callable[..., None] = print) -> int:
         ffmpeg_path=args.ffmpeg_path,
         ffprobe_path=args.ffprobe_path,
         module_prefix=args.module_prefix,
+        pipe_separator=args.pipe_separator,
+        frame_logging_step=1000,
         preview=args.preview,
         debug=args.debug,
         verbose=args.verbose,

@@ -3,16 +3,22 @@
 
 adts
 asctime
+avioflags
+bluenviron
 datefmt
 demuxing
+discardcorrupt
 dostr
 fflags
 ffmpeg
+ffplay
 ffprobe
 fmpeg
 fmpeg's
 fprobe
+framedrop
 levelname
+mediamtx
 meipass
 muxing
 nobuffer
@@ -20,7 +26,9 @@ nocov
 paletted
 pythonpath
 rawvideo
+rtspatt
 tznow
+ullaakut
 vasdt
 vcodec
 yuyv
