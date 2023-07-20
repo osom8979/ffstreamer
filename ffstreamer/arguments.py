@@ -46,6 +46,10 @@ Examples:
     $ {PROG} -vv {CMD_MODULES}
 """
 
+CMD_LIST: Final[str] = "list"
+CMD_LIST_HELP: Final[str] = f"Equals '{CMD_MODULES}' command"
+CMD_LIST_EPILOG: Final[str] = CMD_MODULES_EPILOG
+
 CMD_INSPECT: Final[str] = "inspect"
 CMD_INSPECT_HELP: Final[str] = "Inspect the source file"
 CMD_INSPECT_EPILOG = f"""
@@ -64,7 +68,7 @@ Examples:
     $ {PROG} {CMD_RUN} "rtsp://ip-camera/stream" "rtsp://localhost:8554/stream"
 """
 
-CMDS = (CMD_PIXELS, CMD_FILES, CMD_MODULES, CMD_INSPECT, CMD_RUN)
+CMDS = (CMD_PIXELS, CMD_FILES, CMD_MODULES, CMD_LIST, CMD_INSPECT, CMD_RUN)
 
 DEFAULT_SEVERITY: Final[str] = SEVERITY_NAME_INFO
 DEFAULT_MODULE_PREFIX: Final[str] = MODULE_NAME_PREFIX
@@ -97,6 +101,17 @@ def add_modules_parser(subparsers) -> None:
         help=CMD_MODULES_HELP,
         formatter_class=RawDescriptionHelpFormatter,
         epilog=CMD_MODULES_EPILOG,
+    )
+    assert isinstance(parser, ArgumentParser)
+
+
+def add_list_parser(subparsers) -> None:
+    # noinspection SpellCheckingInspection
+    parser = subparsers.add_parser(
+        name=CMD_LIST,
+        help=CMD_LIST_HELP,
+        formatter_class=RawDescriptionHelpFormatter,
+        epilog=CMD_LIST_EPILOG,
     )
     assert isinstance(parser, ArgumentParser)
 
@@ -258,6 +273,7 @@ def default_argument_parser() -> ArgumentParser:
     add_pixels_parser(subparsers)
     add_files_parser(subparsers)
     add_modules_parser(subparsers)
+    add_list_parser(subparsers)
     add_inspect_parser(subparsers)
     add_run_parser(subparsers)
     return parser

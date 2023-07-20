@@ -11,6 +11,7 @@ from ffstreamer.apps.run import run_main
 from ffstreamer.arguments import (
     CMD_FILES,
     CMD_INSPECT,
+    CMD_LIST,
     CMD_MODULES,
     CMD_PIXELS,
     CMD_RUN,
@@ -81,7 +82,7 @@ def main(
             return files_main(args, printer=printer)
         elif cmd == CMD_INSPECT:
             return inspect_main(args, printer=printer)
-        elif cmd == CMD_MODULES:
+        elif cmd in (CMD_LIST, CMD_MODULES):
             return modules_main(args, printer=printer)
         elif cmd == CMD_PIXELS:
             return pixels_main(args, printer=printer)
