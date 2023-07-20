@@ -5,24 +5,66 @@ from functools import lru_cache
 from typing import Final, List, Optional
 
 from ffstreamer.ffmpeg.ffmpeg import (
-    DEFAULT_FFMPEG_INPUT_FORMAT,
-    DEFAULT_FFMPEG_OUTPUT_FORMAT,
+    DEFAULT_FFMPEG_RECV_FORMAT,
+    DEFAULT_FFMPEG_SEND_FORMAT,
+    DEFAULT_FILE_FORMAT,
+    DEFAULT_PIXEL_FORMAT,
 )
 from ffstreamer.logging.logging import SEVERITIES, SEVERITY_NAME_INFO
 from ffstreamer.module.variables import MODULE_NAME_PREFIX, MODULE_PIPE_SEPARATOR
 
 PROG: Final[str] = "ffstreamer"
-DESCRIPTION: Final[str] = "FFmpeg Streamer"
+DESCRIPTION: Final[str] = "Support for streaming in asyncio using FFmpeg's pipe IPC"
 EPILOG = f"""
 Examples:
 
-  Debugging options:
+  Full debugging options:
     $ {PROG} -c -d -vv ...
 
-  RTSP to RTSP:
-    $ {PROG} "rtsp://ip-camera/stream" rtsp "rtsp://localhost:8554/stream"
+  Change module prefix:
+    $ {PROG} --module-prefix=my_project_ ...
 """
 
+CMD_PIXELS: Final[str] = "pixels"
+CMD_PIXELS_HELP: Final[str] = "Prints a list of available pixel formats"
+
+CMD_FILES: Final[str] = "files"
+CMD_FILES_HELP: Final[str] = "Prints a list of available file formats"
+
+CMD_MODULES: Final[str] = "modules"
+CMD_MODULES_HELP: Final[str] = "Prints a list of available modules"
+CMD_MODULES_EPILOG = f"""
+Examples:
+
+  List of modules 'name'
+    $ {PROG} {CMD_MODULES}
+
+  List of modules 'name,version':
+    $ {PROG} -v {CMD_MODULES}
+
+  List of modules 'name,version,doc':
+    $ {PROG} -vv {CMD_MODULES}
+"""
+
+CMD_INSPECT: Final[str] = "inspect"
+CMD_INSPECT_HELP: Final[str] = "Inspect the source file"
+CMD_INSPECT_EPILOG = f"""
+Examples:
+
+  Inspect RTSP source
+    $ {PROG} {CMD_INSPECT} rtsp://0.0.0.0:8554/live.sdp
+"""
+
+CMD_RUN: Final[str] = "run"
+CMD_RUN_HELP: Final[str] = "Run the pipeline"
+CMD_RUN_EPILOG = f"""
+Examples:
+
+  Bypass from RTSP to RTSP.
+    $ {PROG} {CMD_RUN} "rtsp://ip-camera/stream" "rtsp://localhost:8554/stream"
+"""
+
+CMDS = (CMD_PIXELS, CMD_FILES, CMD_MODULES, CMD_INSPECT, CMD_RUN)
 
 DEFAULT_SEVERITY: Final[str] = SEVERITY_NAME_INFO
 DEFAULT_MODULE_PREFIX: Final[str] = MODULE_NAME_PREFIX
@@ -36,6 +78,107 @@ def version() -> str:
     return __version__
 
 
+def add_pixels_parser(subparsers) -> None:
+    # noinspection SpellCheckingInspection
+    parser = subparsers.add_parser(name=CMD_PIXELS, help=CMD_PIXELS_HELP)
+    assert isinstance(parser, ArgumentParser)
+
+
+def add_files_parser(subparsers) -> None:
+    # noinspection SpellCheckingInspection
+    parser = subparsers.add_parser(name=CMD_FILES, help=CMD_FILES_HELP)
+    assert isinstance(parser, ArgumentParser)
+
+
+def add_modules_parser(subparsers) -> None:
+    # noinspection SpellCheckingInspection
+    parser = subparsers.add_parser(
+        name=CMD_MODULES,
+        help=CMD_MODULES_HELP,
+        formatter_class=RawDescriptionHelpFormatter,
+        epilog=CMD_MODULES_EPILOG,
+    )
+    assert isinstance(parser, ArgumentParser)
+
+
+def add_inspect_parser(subparsers) -> None:
+    # noinspection SpellCheckingInspection
+    parser = subparsers.add_parser(
+        name=CMD_INSPECT,
+        help=CMD_INSPECT_HELP,
+        formatter_class=RawDescriptionHelpFormatter,
+        epilog=CMD_INSPECT_EPILOG,
+    )
+    assert isinstance(parser, ArgumentParser)
+    parser.add_argument("source", help="Source URL")
+
+
+def add_run_parser(subparsers) -> None:
+    # noinspection SpellCheckingInspection
+    parser = subparsers.add_parser(
+        name=CMD_RUN,
+        help=CMD_RUN_HELP,
+        formatter_class=RawDescriptionHelpFormatter,
+        epilog=CMD_RUN_EPILOG,
+    )
+    assert isinstance(parser, ArgumentParser)
+
+    parser.add_argument(
+        "--recv-commandline",
+        "-i",
+        default=DEFAULT_FFMPEG_RECV_FORMAT,
+        help="Commandline arguments of the FFmpeg recv pipeline",
+    )
+    parser.add_argument(
+        "--send-commandline",
+        "-o",
+        default=DEFAULT_FFMPEG_SEND_FORMAT,
+        help="Commandline arguments of the FFmpeg send pipeline",
+    )
+
+    parser.add_argument(
+        "--pixel-format",
+        default=DEFAULT_PIXEL_FORMAT,
+        help=(
+            "The pixel format of the frames passed across the pipeline"
+            f" (default: '{DEFAULT_PIXEL_FORMAT}')"
+        ),
+    )
+    parser.add_argument(
+        "--file-format",
+        default=DEFAULT_FILE_FORMAT,
+        help=f"Result file format (default: '{DEFAULT_FILE_FORMAT}')",
+    )
+
+    parser.add_argument(
+        "--preview",
+        "-p",
+        action="store_true",
+        default=False,
+        help="Display the preview window",
+    )
+
+    parser.add_argument(
+        "--pipe-separator",
+        default=MODULE_PIPE_SEPARATOR,
+        help=f"The module's pipeline separator (default: '{MODULE_PIPE_SEPARATOR}')",
+    )
+
+    parser.add_argument(
+        "source",
+        help="Input source URL",
+    )
+    parser.add_argument(
+        "destination",
+        help="Output destination URL",
+    )
+    parser.add_argument(
+        "opts",
+        nargs=REMAINDER,
+        help="Module pipelines arguments",
+    )
+
+
 def default_argument_parser() -> ArgumentParser:
     parser = ArgumentParser(
         prog=PROG,
@@ -44,20 +187,22 @@ def default_argument_parser() -> ArgumentParser:
         formatter_class=RawDescriptionHelpFormatter,
     )
 
-    parser.add_argument(
+    logging_group = parser.add_mutually_exclusive_group()
+    logging_group.add_argument(
         "--colored-logging",
         "-c",
         action="store_true",
         default=False,
         help="Use colored logging",
     )
-    parser.add_argument(
+    logging_group.add_argument(
         "--simple-logging",
         "-s",
         action="store_true",
         default=False,
         help="Use simple logging",
     )
+
     parser.add_argument(
         "--severity",
         choices=SEVERITIES,
@@ -85,28 +230,19 @@ def default_argument_parser() -> ArgumentParser:
         version=version(),
     )
 
-    # --------------
-    # Module options
-    # --------------
-
     parser.add_argument(
         "--module-prefix",
         metavar="prefix",
         default=DEFAULT_MODULE_PREFIX,
         help=f"The prefix of the module (default: '{DEFAULT_MODULE_PREFIX}')",
     )
+
     parser.add_argument(
-        "--list",
-        "-l",
+        "--use-static-ffmpeg",
         action="store_true",
         default=False,
-        help="Prints a list of available modules",
+        help="Use the binaries from the static-ffmpeg package",
     )
-
-    # --------------
-    # FFmpeg options
-    # --------------
-
     parser.add_argument(
         "--ffmpeg-path",
         default="ffmpeg",
@@ -117,59 +253,13 @@ def default_argument_parser() -> ArgumentParser:
         default="ffprobe",
         help="FFprobe command path",
     )
-    parser.add_argument(
-        "--input",
-        "-i",
-        default=DEFAULT_FFMPEG_INPUT_FORMAT,
-        help=(
-            "Commandline arguments of the FFmpeg input pipeline"
-            f" (Default is '{DEFAULT_FFMPEG_INPUT_FORMAT}')"
-        ),
-    )
-    parser.add_argument(
-        "--input-channels",
-        type=int,
-        default=3,
-        help="Number of channels to pipeline",
-    )
-    parser.add_argument(
-        "--output",
-        "-o",
-        default=DEFAULT_FFMPEG_OUTPUT_FORMAT,
-        help=(
-            "Commandline arguments of the FFmpeg output pipeline"
-            f" (Default is '{DEFAULT_FFMPEG_OUTPUT_FORMAT}')"
-        ),
-    )
-    parser.add_argument(
-        "--format",
-        "-f",
-        default="auto",
-        help="Output file format",
-    )
-    parser.add_argument(
-        "--preview",
-        "-p",
-        action="store_true",
-        default=False,
-        help="Display the preview window",
-    )
 
-    parser.add_argument(
-        "source",
-        help="Input source URL",
-    )
-    parser.add_argument(
-        "destination",
-        help="Output URL",
-    )
-
-    parser.add_argument(
-        "opts",
-        nargs=REMAINDER,
-        help=f"Module pipelines (Module pipe separator is '{MODULE_PIPE_SEPARATOR}')",
-    )
-
+    subparsers = parser.add_subparsers(dest="cmd")
+    add_pixels_parser(subparsers)
+    add_files_parser(subparsers)
+    add_modules_parser(subparsers)
+    add_inspect_parser(subparsers)
+    add_run_parser(subparsers)
     return parser
 
 

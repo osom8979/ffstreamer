@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+from io import StringIO
 from os import path
 from subprocess import check_output
 from typing import Final, List, NamedTuple
@@ -11,7 +12,7 @@ MEGA_BYTE_UNIT: Final[int] = 1024 * 1024
 DEFAULT_BUFFER_SIZE: Final[int] = 100 * MEGA_BYTE_UNIT
 
 # fmt: off
-DEFAULT_FFMPEG_INPUT_FORMAT: Final[str] = (
+DEFAULT_FFMPEG_RECV_FORMAT: Final[str] = (
     # global options
     "-hide_banner "
     # infile options
@@ -20,7 +21,7 @@ DEFAULT_FFMPEG_INPUT_FORMAT: Final[str] = (
     # outfile options
     "-f image2pipe -pix_fmt bgr24 -vcodec rawvideo pipe:1"
 )
-DEFAULT_FFMPEG_OUTPUT_FORMAT: Final[str] = (
+DEFAULT_FFMPEG_SEND_FORMAT: Final[str] = (
     # global options
     "-hide_banner "
     # infile options
@@ -32,6 +33,12 @@ DEFAULT_FFMPEG_OUTPUT_FORMAT: Final[str] = (
     "-f {format} {dest}"
 )
 # fmt: on
+
+AUTOMATIC_DETECT_FILE_FORMAT: Final[str] = "auto"
+NONE_FILE_FORMAT: Final[str] = "none"
+
+DEFAULT_PIXEL_FORMAT: Final[str] = "bgr24"
+DEFAULT_FILE_FORMAT: Final[str] = AUTOMATIC_DETECT_FILE_FORMAT
 
 FFMPEG_PIX_FMTS_HEADER_LINES: Final[int] = 8
 """
@@ -74,6 +81,18 @@ class PixFmt(NamedTuple):
     name: str
     nb_components: int
     bits_per_pixel: int
+
+    def __repr__(self):
+        buffer = StringIO()
+        buffer.write("I" if self.supported_input_format else ".")
+        buffer.write("O" if self.supported_output_format else ".")
+        buffer.write("H" if self.hardware_accelerated_format else ".")
+        buffer.write("P" if self.paletted_format else ".")
+        buffer.write("B" if self.bitstream_format else ".")
+        buffer.write(f" comp={self.nb_components}")
+        buffer.write(f" bits={self.bits_per_pixel:<3}")
+        buffer.write(f" {self.name}")
+        return buffer.getvalue()
 
 
 def inspect_pix_fmts(ffmpeg_path="ffmpeg") -> List[PixFmt]:
@@ -132,6 +151,13 @@ class FileFormat(NamedTuple):
     supported_muxing: bool
     name: str
     description: str
+
+    def __repr__(self):
+        buffer = StringIO()
+        buffer.write("D" if self.supported_demuxing else ".")
+        buffer.write("E" if self.supported_muxing else ".")
+        buffer.write(f" {self.name}")
+        return buffer.getvalue()
 
 
 def inspect_file_formats(ffmpeg_path="ffmpeg") -> List[FileFormat]:

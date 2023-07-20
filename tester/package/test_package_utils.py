@@ -24,7 +24,7 @@ class PackageUtilsTestCase(TestCase):
     def test_list_submodule_names(self):
         modules = list_submodule_names(ffstreamer_app)
         modules.sort()
-        self.assertListEqual(["default"], modules)
+        self.assertListEqual(["files", "inspect", "modules", "pixels", "run"], modules)
 
     def test_all_module_names(self):
         self.assertIn("pip", all_module_names())
