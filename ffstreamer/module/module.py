@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from types import ModuleType
-from typing import List, Union
+from typing import Any, List, Union
 
 from ffstreamer.module.mixin.module_doc import ModuleDoc
 from ffstreamer.module.mixin.module_frame import ModuleFrame
@@ -38,10 +38,10 @@ class Module(
         except BaseException as e:
             self.logger.exception(e)
 
-    async def frame(self, data: bytes) -> bytes:
+    def frame(self, data: Any) -> Any:
         if not self.has_on_frame:
             return data
-        return await self.on_frame(data)
+        return self.on_frame(data)
 
 
 def find_and_strip_module_prefix(prefix=MODULE_NAME_PREFIX) -> List[str]:

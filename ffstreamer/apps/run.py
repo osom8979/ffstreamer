@@ -4,12 +4,13 @@ from argparse import Namespace
 from asyncio import run as asyncio_run
 from asyncio.exceptions import CancelledError
 from sys import version_info
-from typing import Callable, Optional
+from typing import Callable
 
 if version_info >= (3, 11):
     from asyncio import Runner  # type: ignore[attr-defined]
 
-import uvloop
+from uvloop import install as uvloop_install
+from uvloop import new_event_loop as uvloop_new_event_loop
 
 from ffstreamer.argparse.argument_utils import argument_splitter
 from ffstreamer.ffmpeg.ffmpeg import (
@@ -92,7 +93,8 @@ class RunApp:
 
         self._receiver = FFmpegReceiver(
             frame_buffer_size,
-            self.on_buffing,
+            self.on_frame,
+            self.on_flush,
             *recv_arguments,
             ffmpeg_path=ffmpeg_path,
             frame_logging_step=frame_logging_step,
@@ -132,23 +134,23 @@ class RunApp:
     def verbose(self) -> int:
         return self._verbose
 
-    async def on_buffing(self, data: Optional[bytes]) -> None:
-        if data is not None:
-            buffer = data
-            for i, module in enumerate(self._modules):
-                buffer = await module.frame(buffer)
-            self._sender.stdin.write(buffer)
-        else:
-            await self._sender.stdin.drain()
+    def on_frame(self, data: bytes) -> None:
+        buffer = data
+        for i, module in enumerate(self._modules):
+            buffer = module.frame(buffer)
+        self._sender.stdin.write(buffer)
+
+    async def on_flush(self) -> None:
+        await self._sender.stdin.drain()
 
     def run(self) -> int:
         try:
             if self._use_uvloop:
                 if version_info >= (3, 11):
-                    with Runner(loop_factory=uvloop.new_event_loop) as runner:
+                    with Runner(loop_factory=uvloop_new_event_loop) as runner:
                         runner.run(self.run_until_complete())
                 else:
-                    uvloop.install()
+                    uvloop_install()
                     asyncio_run(self.run_until_complete())
             else:
                 asyncio_run(self.run_until_complete())

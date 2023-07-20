@@ -3,7 +3,7 @@
 from asyncio import create_subprocess_exec, subprocess
 from asyncio.exceptions import CancelledError, IncompleteReadError
 from logging import WARNING
-from typing import Any, Awaitable, Callable, Optional
+from typing import Any, Awaitable, Callable
 
 from ffstreamer.aio.stream import logging_stream
 from ffstreamer.ffmpeg.ffmpeg_process import FFmpegProcess
@@ -14,7 +14,8 @@ class FFmpegReceiver(FFmpegProcess):
     def __init__(
         self,
         frame_buffer_size: int,
-        frame_callback: Callable[[Optional[bytes]], Awaitable[Any]],
+        frame_callback: Callable[[bytes], None],
+        flush_callback: Callable[..., Awaitable[Any]],
         *ffmpeg_args,
         ffmpeg_path="ffmpeg",
         frame_logging_step=1000,
@@ -22,6 +23,7 @@ class FFmpegReceiver(FFmpegProcess):
         super().__init__()
         self._frame_buffer_size = frame_buffer_size
         self._frame_callback = frame_callback
+        self._flush_callback = flush_callback
         self._ffmpeg_path = ffmpeg_path
         self._ffmpeg_args = ffmpeg_args
         self._frame_logging_step = frame_logging_step
@@ -42,9 +44,7 @@ class FFmpegReceiver(FFmpegProcess):
             logger.debug("Start receiving frames ...")
             while not self.stdout.at_eof():
                 buffer = await self.stdout.readexactly(self._frame_buffer_size)
-
-                await self._frame_callback(buffer)
-
+                self._frame_callback(buffer)
                 if self._frame_index % self._frame_logging_step == 0:
                     logger.debug(f"Recv frame #{self._frame_index} ...")
                 self._frame_index += 1
@@ -55,7 +55,7 @@ class FFmpegReceiver(FFmpegProcess):
         except BaseException as unknown_error:
             logger.exception(unknown_error)
         finally:
-            await self._frame_callback(None)
+            await self._flush_callback()
             logger.debug(f"Frame reader is complete: total {self._frame_index}")
 
     async def _logging_stderr(self) -> None:
