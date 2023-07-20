@@ -16,7 +16,7 @@ DEFAULT_FFMPEG_RECV_FORMAT: Final[str] = (
     # global options
     "-hide_banner "
     # infile options
-    "-fflags nobuffer -flags low_delay "
+    "-fflags nobuffer -fflags discardcorrupt -flags low_delay -rtsp_transport tcp "
     "-i {source} "
     # outfile options
     "-f image2pipe -pix_fmt {pixel_format} -vcodec rawvideo pipe:1"

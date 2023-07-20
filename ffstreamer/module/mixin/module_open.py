@@ -32,7 +32,7 @@ class ModuleOpen(ModuleBase):
     def has_on_close(self) -> bool:
         return self.has(NAME_ON_CLOSE)
 
-    async def on_open(self, *args: str) -> None:
+    async def on_open(self, *args, **kwargs) -> None:
         if self._opened:
             raise ModuleCallbackAlreadyStateError(self.module_name, NAME_ON_OPEN)
 
@@ -41,9 +41,9 @@ class ModuleOpen(ModuleBase):
         try:
             if callback is not None:
                 if iscoroutinefunction(callback):
-                    await callback(*args)
+                    await callback(*args, **kwargs)
                 else:
-                    callback(*args)
+                    callback(*args, **kwargs)
         except BaseException as e:
             raise ModuleCallbackRuntimeError(self.module_name, NAME_ON_OPEN) from e
         else:

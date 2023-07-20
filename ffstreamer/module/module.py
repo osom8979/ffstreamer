@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
-from typing import List
+from types import ModuleType
+from typing import List, Union
 
 from ffstreamer.module.mixin.module_doc import ModuleDoc
 from ffstreamer.module.mixin.module_frame import ModuleFrame
@@ -16,14 +17,18 @@ class Module(
     ModuleOpen,
     ModuleVersion,
 ):
-    def __init__(self, module_name: str, *args, isolate=False):
-        self._module = self.import_module(module_name, isolate=isolate)
+    def __init__(self, module: Union[str, ModuleType], isolate=False, *args, **kwargs):
+        if isinstance(module, str):
+            self._module = self.import_module(module, isolate=isolate)
+        else:
+            self._module = module
         self._args = args
+        self._kwargs = kwargs
 
     async def open(self) -> None:
         if not self.has_on_open:
             return
-        await self.on_open(*self._args)
+        await self.on_open(*self._args, **self._kwargs)
 
     async def close(self) -> None:
         if not self.has_on_close:
@@ -54,4 +59,6 @@ def module_pipeline_splitter(*args, separator=MODULE_PIPE_SEPARATOR) -> List[Lis
             module_and_args = list()
         else:
             module_and_args.append(arg)
+    if module_and_args:
+        result.append(module_and_args)
     return result

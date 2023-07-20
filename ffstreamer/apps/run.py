@@ -54,25 +54,33 @@ class RunApp:
         channels = bits_per_pixel // 8
         frame_buffer_size = width * height * channels
 
-        cmds_kwargs = dict(
+        kwargs = dict(
             source=source,
             destination=destination,
             width=width,
             height=height,
+            channels=channels,
+            frame_buffer_size=frame_buffer_size,
             pixel_format=pixel_format,
             file_format=file_format,
         )
 
-        recv_arguments = argument_splitter(recv_commandline, **cmds_kwargs)
-        send_arguments = argument_splitter(send_commandline, **cmds_kwargs)
+        recv_arguments = argument_splitter(recv_commandline, **kwargs)
+        send_arguments = argument_splitter(send_commandline, **kwargs)
         pipelines = module_pipeline_splitter(*args, separator=pipe_separator)
 
         self._modules = list()
         for pipeline in pipelines:
-            module_name = module_prefix + pipeline[0]
+            module_name = pipeline[0]
             module_args = pipeline[1:]
-            logger.debug(f"Initialize module '{module_name}' -> {module_args}")
-            self._modules.append(Module(module_name, *module_args))
+
+            if module_name[0] == "@":
+                module_path = "ffstreamer.module.defaults." + module_name[1:]
+            else:
+                module_path = module_prefix + module_name
+
+            logger.debug(f"Initialize module: '{module_name}' -> {module_args}")
+            self._modules.append(Module(module_path, *module_args, **kwargs))
             logger.info(f"Initialized module '{module_name}'")
 
         self._receiver = FFmpegReceiver(
@@ -119,7 +127,7 @@ class RunApp:
     async def on_buffing(self, data: Optional[bytes]) -> None:
         if data is not None:
             buffer = data
-            for module in self._modules:
+            for i, module in enumerate(self._modules):
                 buffer = await module.frame(buffer)
             self._sender.stdin.write(buffer)
         else:
@@ -189,7 +197,7 @@ def run_main(args: Namespace, printer: Callable[..., None] = print) -> int:
         ffprobe_path=args.ffprobe_path,
         module_prefix=args.module_prefix,
         pipe_separator=args.pipe_separator,
-        frame_logging_step=1000,
+        frame_logging_step=100,
         preview=args.preview,
         debug=args.debug,
         verbose=args.verbose,
