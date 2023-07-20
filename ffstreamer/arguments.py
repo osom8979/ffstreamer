@@ -99,7 +99,8 @@ Demonstration:
   Run {PROG}:
     $ {PROG} -c -d -vv {CMD_RUN} \\
         rtsp://localhost:9999/live.sdp \\
-        rtsp://localhost:8554/stream
+        rtsp://localhost:8554/stream \\
+        @bytes2numpy ! @grayscale ! @numpy2bytes
 
   Play the resulting stream:
     $ ffplay \\
