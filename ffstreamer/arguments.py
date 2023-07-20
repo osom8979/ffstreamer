@@ -13,6 +13,8 @@ from ffstreamer.ffmpeg.ffmpeg import (
 from ffstreamer.logging.logging import SEVERITIES, SEVERITY_NAME_INFO
 from ffstreamer.module.variables import MODULE_NAME_PREFIX, MODULE_PIPE_SEPARATOR
 
+__MODULE_PREFIX_FLAG: Final[str] = "--module-prefix"
+
 PROG: Final[str] = "ffstreamer"
 DESCRIPTION: Final[str] = "Support for streaming in asyncio using FFmpeg's pipe IPC"
 EPILOG = f"""
@@ -21,8 +23,14 @@ Examples:
   Full debugging options:
     $ {PROG} -c -d -vv ...
 
-  Change module prefix:
-    $ {PROG} --module-prefix=my_project_ ...
+  Find the module name with a prefix:
+    $ {PROG} {__MODULE_PREFIX_FLAG}=prefix_ ...
+
+  Find submodules of a specific module - It must end with dot('.') -:
+    $ {PROG} {__MODULE_PREFIX_FLAG}=module.path. ...
+
+  Finds a module specifying both a submodule and a prefix:
+    $ {PROG} {__MODULE_PREFIX_FLAG}=module.path.prefix_ ...
 """
 
 CMD_PIXELS: Final[str] = "pixels"
@@ -44,6 +52,9 @@ Examples:
 
   List of modules 'name,version,doc':
     $ {PROG} -vv {CMD_MODULES}
+
+  List of modules 'name,version,doc,apis':
+    $ {PROG} -vvv {CMD_MODULES}
 """
 
 CMD_LIST: Final[str] = "list"
@@ -246,7 +257,7 @@ def default_argument_parser() -> ArgumentParser:
     )
 
     parser.add_argument(
-        "--module-prefix",
+        __MODULE_PREFIX_FLAG,
         metavar="prefix",
         default=DEFAULT_MODULE_PREFIX,
         help=f"The prefix of the module (default: '{DEFAULT_MODULE_PREFIX}')",
