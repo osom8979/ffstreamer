@@ -98,6 +98,7 @@ Demonstration:
 
   Run {PROG}:
     $ {PROG} -c -d -vv {CMD_RUN} \\
+        --use-uvloop \\
         rtsp://localhost:9999/live.sdp \\
         rtsp://localhost:8554/stream \\
         @bytes2numpy ! @grayscale ! @numpy2bytes

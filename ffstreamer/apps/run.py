@@ -4,7 +4,7 @@ from argparse import Namespace
 from asyncio import run as asyncio_run
 from asyncio.exceptions import CancelledError
 from sys import version_info
-from typing import Callable
+from typing import Callable, Optional
 
 if version_info >= (3, 11):
     from asyncio import Runner  # type: ignore[attr-defined]
@@ -94,7 +94,6 @@ class RunApp:
         self._receiver = FFmpegReceiver(
             frame_buffer_size,
             self.on_frame,
-            self.on_flush,
             *recv_arguments,
             ffmpeg_path=ffmpeg_path,
             frame_logging_step=frame_logging_step,
@@ -134,13 +133,12 @@ class RunApp:
     def verbose(self) -> int:
         return self._verbose
 
-    def on_frame(self, data: bytes) -> None:
-        buffer = data
-        for i, module in enumerate(self._modules):
-            buffer = module.frame(buffer)
-        self._sender.stdin.write(buffer)
-
-    async def on_flush(self) -> None:
+    async def on_frame(self, data: Optional[bytes]) -> None:
+        if data is not None:
+            buffer = data
+            for i, module in enumerate(self._modules):
+                buffer = module.frame(buffer)
+            self._sender.stdin.write(buffer)
         await self._sender.stdin.drain()
 
     def run(self) -> int:
