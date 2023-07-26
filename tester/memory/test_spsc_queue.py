@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 
-from unittest import TestCase, main
 from multiprocessing import Process
+from time import sleep
+from unittest import TestCase, main
 
 from ffstreamer.memory.spsc_queue import SpscQueue, SpscQueueProducer
 
@@ -10,6 +11,8 @@ def on_subprocess(producer: SpscQueueProducer) -> None:
     for i in range(producer.queue_size):
         producer.pull_nowait()
         producer.put(bytes([i, i, i, i]))
+        if i % 10 == 0:
+            sleep(0.01)
 
 
 class SpscQueueTestCase(TestCase):
@@ -21,6 +24,8 @@ class SpscQueueTestCase(TestCase):
         for i in range(queue.consumer.queue_size):
             queue.consumer.pull_nowait()
             data = queue.consumer.get()
+            if i % 20 == 0:
+                sleep(0.01)
             self.assertEqual(bytes([i, i, i, i]), data)
 
         process.join()
