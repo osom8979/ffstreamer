@@ -25,7 +25,7 @@ class PackageUtilsTestCase(TestCase):
     def test_list_submodule_names(self):
         modules = list_submodule_names(ffstreamer_apps)
         modules.sort()
-        self.assertListEqual(["files", "inspect", "modules", "pixels", "run"], modules)
+        self.assertListEqual(["files", "inspect", "modules", "pipe", "pixels"], modules)
 
         modules2 = list_submodule_names_with_module_path("ffstreamer.apps")
         self.assertListEqual(modules2, modules)

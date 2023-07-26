@@ -30,7 +30,7 @@ from ffstreamer.module.module import Module, module_pipeline_splitter
 from ffstreamer.module.variables import MODULE_NAME_PREFIX, MODULE_PIPE_SEPARATOR
 
 
-class RunApp:
+class PipeApp:
     def __init__(
         self,
         source: str,
@@ -183,7 +183,7 @@ class RunApp:
         await self._sender.wait()
 
 
-def run_main(args: Namespace, printer: Callable[..., None] = print) -> int:
+def pipe_main(args: Namespace, printer: Callable[..., None] = print) -> int:
     assert printer is not None
 
     assert isinstance(args.source, str)
@@ -202,7 +202,7 @@ def run_main(args: Namespace, printer: Callable[..., None] = print) -> int:
     assert isinstance(args.debug, bool)
     assert isinstance(args.verbose, int)
 
-    app = RunApp(
+    app = PipeApp(
         args.source,
         args.destination,
         *args.opts,

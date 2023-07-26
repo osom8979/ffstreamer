@@ -6,15 +6,15 @@ from typing import Callable, List, Optional
 from ffstreamer.apps.files import files_main
 from ffstreamer.apps.inspect import inspect_main
 from ffstreamer.apps.modules import modules_main
+from ffstreamer.apps.pipe import pipe_main
 from ffstreamer.apps.pixels import pixels_main
-from ffstreamer.apps.run import run_main
 from ffstreamer.arguments import (
     CMD_FILES,
     CMD_INSPECT,
     CMD_LIST,
     CMD_MODULES,
+    CMD_PIPE,
     CMD_PIXELS,
-    CMD_RUN,
     CMDS,
     get_default_arguments,
 )
@@ -84,10 +84,10 @@ def main(
             return inspect_main(args, printer=printer)
         elif cmd in (CMD_LIST, CMD_MODULES):
             return modules_main(args, printer=printer)
+        elif cmd == CMD_PIPE:
+            return pipe_main(args, printer=printer)
         elif cmd == CMD_PIXELS:
             return pixels_main(args, printer=printer)
-        elif cmd == CMD_RUN:
-            return run_main(args, printer=printer)
         else:
             assert False, "Inaccessible section"
     except BaseException as e:

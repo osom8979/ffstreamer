@@ -70,13 +70,13 @@ Examples:
     $ {PROG} {CMD_INSPECT} rtsp://0.0.0.0:8554/live.sdp
 """
 
-CMD_RUN: Final[str] = "run"
-CMD_RUN_HELP: Final[str] = "Run the pipeline"
-CMD_RUN_EPILOG = f"""
+CMD_PIPE: Final[str] = "pipe"
+CMD_PIPE_HELP: Final[str] = "Run the pipeline"
+CMD_PIPE_EPILOG = f"""
 Examples:
 
   Bypass from RTSP to RTSP.
-    $ {PROG} {CMD_RUN} "rtsp://ip-camera/stream" "rtsp://localhost:8554/stream"
+    $ {PROG} {CMD_PIPE} "rtsp://ip-camera/stream" "rtsp://localhost:8554/stream"
 
 Demonstration:
 
@@ -97,7 +97,7 @@ Demonstration:
         bluenviron/mediamtx
 
   Run {PROG}:
-    $ {PROG} -c -d -vv {CMD_RUN} \\
+    $ {PROG} -c -d -vv {CMD_PIPE} \\
         --use-uvloop \\
         rtsp://localhost:9999/live.sdp \\
         rtsp://localhost:8554/stream \\
@@ -114,7 +114,7 @@ Demonstration:
         rtsp://localhost:8554/stream
 """
 
-CMDS = (CMD_PIXELS, CMD_FILES, CMD_MODULES, CMD_LIST, CMD_INSPECT, CMD_RUN)
+CMDS = (CMD_PIXELS, CMD_FILES, CMD_MODULES, CMD_LIST, CMD_INSPECT, CMD_PIPE)
 
 DEFAULT_SEVERITY: Final[str] = SEVERITY_NAME_INFO
 DEFAULT_MODULE_PREFIX: Final[str] = MODULE_NAME_PREFIX
@@ -174,13 +174,13 @@ def add_inspect_parser(subparsers) -> None:
     parser.add_argument("source", help="Source URL")
 
 
-def add_run_parser(subparsers) -> None:
+def add_pipe_parser(subparsers) -> None:
     # noinspection SpellCheckingInspection
     parser = subparsers.add_parser(
-        name=CMD_RUN,
-        help=CMD_RUN_HELP,
+        name=CMD_PIPE,
+        help=CMD_PIPE_HELP,
         formatter_class=RawDescriptionHelpFormatter,
-        epilog=CMD_RUN_EPILOG,
+        epilog=CMD_PIPE_EPILOG,
     )
     assert isinstance(parser, ArgumentParser)
 
@@ -327,7 +327,7 @@ def default_argument_parser() -> ArgumentParser:
     add_modules_parser(subparsers)
     add_list_parser(subparsers)
     add_inspect_parser(subparsers)
-    add_run_parser(subparsers)
+    add_pipe_parser(subparsers)
     return parser
 
 
