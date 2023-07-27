@@ -2,3 +2,5 @@ coloredlogs
 static-ffmpeg
 numpy
 uvloop
+av
+overrides

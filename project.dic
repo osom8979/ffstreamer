@@ -24,6 +24,7 @@ muxing
 nobuffer
 nocov
 paletted
+pyav
 pythonpath
 rawvideo
 rtspatt
@@ -33,3 +34,4 @@ ullaakut
 vasdt
 vcodec
 yuyv
+zerolatency
