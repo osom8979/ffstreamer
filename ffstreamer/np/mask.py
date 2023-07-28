@@ -22,7 +22,7 @@ def generate_mask(
 
     channels_cmp: NDArray[np_bool] = image == chroma_color
     pixel_cmp: NDArray[np_bool] = channels_cmp.all(axis=-1, keepdims=True)
-    return where(pixel_cmp, CHANNEL_MIN, CHANNEL_MAX)
+    return where(pixel_cmp, CHANNEL_MIN, CHANNEL_MAX).astype(uint8)
 
 
 def split_mask_on_off(mask: NDArray[uint8]) -> Tuple[NDArray[uint8], NDArray[uint8]]:

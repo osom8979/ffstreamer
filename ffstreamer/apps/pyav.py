@@ -1,12 +1,10 @@
 # -*- coding: utf-8 -*-
 
 from argparse import Namespace
-from asyncio import get_running_loop
 from asyncio import run as asyncio_run
 from asyncio.exceptions import CancelledError
-from concurrent.futures.thread import ThreadPoolExecutor
 from sys import version_info
-from typing import Callable, Optional
+from typing import Callable
 
 if version_info >= (3, 11):
     from asyncio import Runner  # type: ignore[attr-defined]
@@ -32,8 +30,6 @@ from ffstreamer.pyav.pyav_manager import PyavManager
 
 
 class PyavApp(PyavCallbacksInterface):
-    _manager: Optional[PyavManager]
-
     def __init__(
         self,
         source: str,
@@ -46,6 +42,8 @@ class PyavApp(PyavCallbacksInterface):
         module_prefix=MODULE_NAME_PREFIX,
         pipe_separator=MODULE_PIPE_SEPARATOR,
         frame_logging_step=100,
+        queue_size=8,
+        join_timeout=8.0,
         use_uvloop=False,
         debug=False,
         verbose=0,
@@ -60,18 +58,6 @@ class PyavApp(PyavCallbacksInterface):
         width, height = inspect_source_size(source, ffprobe_path)
         channels = bits_per_pixel // 8
         frame_buffer_size = width * height * channels
-
-        self._source = source
-        self._destination = destination
-        self._width = width
-        self._height = height
-        self._channels = channels
-        self._frame_buffer_size = frame_buffer_size
-        self._pixel_format = pixel_format
-        self._file_format = file_format
-        self._queue_size = 8
-        self._join_timeout = 8.0
-        self._frame_logging_step = frame_logging_step
 
         kwargs = dict(
             source=source,
@@ -100,10 +86,21 @@ class PyavApp(PyavCallbacksInterface):
             self._modules.append(Module(module_path, *module_args, **kwargs))
             logger.info(f"Initialized module '{module_name}'")
 
+        self._frame_logging_step = frame_logging_step
         self._use_uvloop = use_uvloop
         self._debug = debug
         self._verbose = verbose
-        self._manager = None
+        self._manager = PyavManager(
+            source,
+            destination,
+            file_format,
+            width,
+            height,
+            channels,
+            queue_size=queue_size,
+            join_timeout=join_timeout,
+            callbacks=self,
+        )
 
         logger.info(f"FFmpeg path: '{ffmpeg_path}'")
         logger.info(f"FFprobe path: '{ffprobe_path}'")
@@ -155,26 +152,7 @@ class PyavApp(PyavCallbacksInterface):
                 await module.close()
 
     async def run_pyav_manager_thread(self) -> None:
-        with ThreadPoolExecutor(max_workers=1) as executor:
-            loop = get_running_loop()
-            self._manager = PyavManager(
-                self._source,
-                self._destination,
-                self._file_format,
-                self._width,
-                self._height,
-                self._channels,
-                queue_size=self._queue_size,
-                join_timeout=self._join_timeout,
-                callbacks=self,
-                loop=loop,
-            )
-            await loop.run_in_executor(executor, self.manager_join_thread)
-
-    def manager_join_thread(self) -> None:
-        assert self._manager is not None
-        self._manager.start()
-        self._manager.join_safe()
+        await self._manager.run_until_complete()
 
     @override
     async def on_image(self, image: ndarray) -> OnImageResult:
@@ -211,6 +189,8 @@ def pyav_main(args: Namespace, printer: Callable[..., None] = print) -> int:
         module_prefix=args.module_prefix,
         pipe_separator=args.pipe_separator,
         frame_logging_step=100,
+        queue_size=8,
+        join_timeout=8.0,
         use_uvloop=args.use_uvloop,
         debug=args.debug,
         verbose=args.verbose,

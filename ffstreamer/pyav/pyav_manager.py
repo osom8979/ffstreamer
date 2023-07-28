@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
-from asyncio import AbstractEventLoop, get_event_loop, run_coroutine_threadsafe
+from asyncio import AbstractEventLoop, get_running_loop, run_coroutine_threadsafe
+from concurrent.futures.thread import ThreadPoolExecutor
 from typing import Optional, Tuple
 
 from numpy import ndarray, uint8
@@ -19,6 +20,11 @@ from ffstreamer.pyav.pyav_sender import create_pyav_sender_process
 from ffstreamer.sync.event import create_event
 
 
+class ProcessNotAlive(RuntimeError):
+    def __init__(self, *args):
+        super().__init__(*args)
+
+
 class PyavManager:
     def __init__(
         self,
@@ -29,32 +35,29 @@ class PyavManager:
         height: int,
         channels=3,
         chroma_color=DEFAULT_CHROMA_COLOR,
+        synchronize=False,
         *,
         queue_size=8,
         join_timeout=8.0,
         callbacks: Optional[PyavCallbacksInterface] = None,
-        loop: Optional[AbstractEventLoop] = None,
+        start_index=0,
     ):
         if channels != 3:
             raise ValueError("Only 3 channels are supported")
 
-        self._loop = loop if loop else get_event_loop()
         self._callbacks = callbacks if callbacks else PyavCallbacks()
         self._join_timeout = join_timeout
-        self._queue_size = queue_size
         self._chroma_color = chroma_color
         self._shape = height, width, channels
-        self._item_size = height * width * channels
+        self._mask_shape = height, width, 1
+        self._index = start_index
 
-        self._overlay_shape = height, width, channels + 1
-        self._overlay_mask_shape = height, width, 1
-        assert self._overlay_shape[-1] == 4
-        self._overlay_item_size = height * width * self._overlay_shape[-1]
-
-        self._receiver = SpscQueue(self._queue_size, self._item_size)
-        self._improc = SpscQueue(1, self._item_size)
-        self._overlay = SpscQueue(1, self._overlay_item_size)
-        self._sender = SpscQueue(self._queue_size, self._item_size)
+        item_size = height * width * channels
+        overlay_item_size = height * width * 4
+        self._receiver = SpscQueue(queue_size, item_size)
+        self._improc = SpscQueue(1, item_size)
+        self._overlay = SpscQueue(1, overlay_item_size)
+        self._sender = SpscQueue(queue_size, item_size)
 
         receiver_producer = self._receiver.producer
         receiver_consumer = self._receiver.consumer
@@ -82,6 +85,7 @@ class PyavManager:
             overlay_consumer=overlay_consumer,
             sender_producer=sender_producer,
             done=self._router_done,
+            synchronize=synchronize,
         )
         self._sender_process = create_pyav_sender_process(
             destination=destination,
@@ -106,11 +110,11 @@ class PyavManager:
 
     def check_process_alive(self) -> None:
         if not self._sender_process.is_alive():
-            raise RuntimeError("Sender process is not alive")
+            raise ProcessNotAlive("Sender process is not alive")
         if not self._router_process.is_alive():
-            raise RuntimeError("Router process is not alive")
+            raise ProcessNotAlive("Router process is not alive")
         if not self._receiver_process.is_alive():
-            raise RuntimeError("Receiver process is not alive")
+            raise ProcessNotAlive("Receiver process is not alive")
 
     def done(self) -> None:
         self._manager_done.set()
@@ -180,32 +184,41 @@ class PyavManager:
         if mask.dtype != uint8:
             raise TypeError(f"Mask dtype is not uint8: {mask.dtype}")
 
-        if overlay.shape != self._overlay_shape:
+        if overlay.shape != self._shape:
             raise ValueError(
                 "Overlay shape does not match: "
-                f"{overlay.shape} != {self._overlay_shape}"
+                f"actual({overlay.shape}) != expect({self._shape})"
             )
-        if mask.shape != self._overlay_mask_shape:
+        if mask.shape != self._mask_shape:
             raise ValueError(
                 "Mask shape does not match: "
-                f"{mask.shape} != {self._overlay_mask_shape}"
+                f"actual({mask.shape}) != expect({self._mask_shape})"
             )
 
     async def _on_image(self, image: NDArray[uint8]) -> None:
+        # print(f"frame #{self._index}")
         result = await self._callbacks.on_image(image)
         overlay, mask = self.split_overlay_and_mask(result)
         self.validate_overlay_and_mask(overlay, mask)
         bgra32 = merge_to_bgra32(image, mask)
         self.overlay_producer.put(bgra32.tobytes())
+        self._index += 1
 
-    def run(self) -> None:
+    def _main(self, loop: AbstractEventLoop) -> None:
         self.start()
         try:
             while not self._manager_done.is_set():
                 self.check_process_alive()
                 data = self.improc_consumer.get()
                 image: NDArray[uint8] = ndarray(self._shape, dtype=uint8, buffer=data)
-                run_coroutine_threadsafe(self._on_image(image), self._loop)
+                run_coroutine_threadsafe(self._on_image(image), loop)
+        except ProcessNotAlive:
+            pass
         finally:
             self.join_safe()
             self.close_pipes()
+
+    async def run_until_complete(self) -> None:
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            loop = get_running_loop()
+            await loop.run_in_executor(executor, self._main, loop)

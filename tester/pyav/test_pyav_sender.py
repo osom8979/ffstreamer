@@ -15,7 +15,7 @@ from ffstreamer.pyav.pyav_sender import create_pyav_sender_process
 
 class PyavSenderTestCase(TestCase):
     def test_default(self):
-        with TemporaryDirectory(suffix="ffstreamer.pyav") as tempdir:
+        with TemporaryDirectory(suffix="ffstreamer.pyav.pyav_sender") as tempdir:
             self.assertTrue(os.path.isdir(tempdir))
 
             file_format = "mp4"

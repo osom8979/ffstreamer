@@ -42,35 +42,34 @@ class PyavReceiver:
         self._video_stream.codec_context.low_delay = True
 
     def run(self) -> None:
-        while not self._done.is_set():
-            for packet in self._input_container.demux(self._video_stream):
-                if self._done.is_set():
-                    return
+        for packet in self._input_container.demux(self._video_stream):
+            if self._done.is_set():
+                return
 
-                # We need to skip the "flushing" packets that `demux` generates.
-                if packet.dts is None:
+            # We need to skip the "flushing" packets that `demux` generates.
+            if packet.dts is None:
+                continue
+
+            for frame in packet.decode():
+                if not frame:
                     continue
 
-                for frame in packet.decode():
-                    if not frame:
-                        continue
+                image = frame.to_ndarray(format="bgr24")
+                data = image.tobytes()
 
-                    image = frame.to_ndarray(format="bgr24")
-                    data = image.tobytes()
+                while True:
+                    if self._done.is_set():
+                        return
 
-                    while True:
-                        if self._done.is_set():
-                            return
-
-                        try:
-                            self._receiver_producer.put(data, timeout=self._put_timeout)
-                        except Full:
-                            if self._drop_if_put_timeout:
-                                break
-                            else:
-                                continue
-                        else:
+                    try:
+                        self._receiver_producer.put(data, timeout=self._put_timeout)
+                    except Full:
+                        if self._drop_if_put_timeout:
                             break
+                        else:
+                            continue
+                    else:
+                        break
 
     def close(self) -> None:
         self._input_container.close()
