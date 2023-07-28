@@ -50,28 +50,25 @@ class PyavRouter:
 
     def run(self) -> None:
         while not self._done.is_set():
-            self._main()
+            data = self._receiver_consumer.get()
 
-    def _main(self) -> None:
-        data = self._receiver_consumer.get()
+            if not self._now_image_processing:
+                self._improc_producer.pull_nowait()
+                if not self._improc_producer.full:
+                    self._improc_producer.put_nowait(data)
+                    self._now_image_processing = True
 
-        if not self._now_image_processing:
-            self._improc_producer.pull_nowait()
-            if not self._improc_producer.full:
-                self._improc_producer.put_nowait(data)
-                self._now_image_processing = True
+            if self._now_image_processing:
+                self._overlay_consumer.pull_nowait()
+                if not self._overlay_consumer.empty:
+                    overlay_data = self._overlay_consumer.get_nowait()
+                    self.update_overlay(overlay_data)
+                    self._now_image_processing = False
 
-        if self._now_image_processing:
-            self._overlay_consumer.pull_nowait()
-            if not self._overlay_consumer.empty:
-                overlay_data = self._overlay_consumer.get_nowait()
-                self.update_overlay(overlay_data)
-                self._now_image_processing = False
+            image: NDArray[uint8] = ndarray(self._shape, dtype=uint8, buffer=data)
+            image[self._overlay_mask > 0] = self._overlay_real[self._overlay_mask > 0]
 
-        image: NDArray[uint8] = ndarray(self._shape, dtype=uint8, buffer=data)
-        image[self._overlay_mask > 0] = self._overlay_real[self._overlay_mask > 0]
-
-        self._sender_producer.put(image.tobytes())
+            self._sender_producer.put(image.tobytes())
 
     def close(self) -> None:
         self._receiver_consumer.close()
