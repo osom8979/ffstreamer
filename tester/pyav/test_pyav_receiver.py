@@ -4,11 +4,9 @@ import os.path
 from multiprocessing import Event
 from unittest import TestCase, main
 
-from numpy import ndarray, uint8
-from numpy.typing import NDArray
-
 from ffstreamer.ffmpeg.ffprobe import inspect_source_size
 from ffstreamer.memory.spsc_queue import SpscQueue
+from ffstreamer.np.image import make_image_with_shape
 from ffstreamer.pyav.pyav_receiver import create_pyav_receiver_process
 from tester.assets import get_big_buck_bunny_trailer_path
 
@@ -32,7 +30,7 @@ class PyavReceiverTestCase(TestCase):
 
         for i in range(queue.consumer.maxsize):
             data = queue.consumer.get()
-            image: NDArray[uint8] = ndarray(shape, uint8, data)
+            image = make_image_with_shape(shape, data)
             self.assertEqual(image.shape[0], video_height)
             self.assertEqual(image.shape[1], video_width)
             self.assertEqual(image.shape[2], 3)

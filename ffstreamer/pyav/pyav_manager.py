@@ -81,16 +81,14 @@ class PyavManager:
         self._shape = height, width, channels
         self._item_size = height * width * channels
 
-        self._overlay_queue_size = 1
         self._overlay_shape = height, width, channels + 1
         self._overlay_mask_shape = height, width, 1
-        self._overlay_item_size = height * width * channels
-        assert self._overlay_queue_size == 1
         assert self._overlay_shape[-1] == 4
+        self._overlay_item_size = height * width * self._overlay_shape[-1]
 
         self._receiver = SpscQueue(self._queue_size, self._item_size)
-        self._improc = SpscQueue(self._queue_size, self._item_size)
-        self._overlay = SpscQueue(self._overlay_queue_size, self._item_size)
+        self._improc = SpscQueue(1, self._item_size)
+        self._overlay = SpscQueue(1, self._overlay_item_size)
         self._sender = SpscQueue(self._queue_size, self._item_size)
 
         receiver_producer = self._receiver.producer

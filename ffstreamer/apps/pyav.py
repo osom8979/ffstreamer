@@ -47,7 +47,6 @@ class PyavApp(PyavCallbacksInterface):
         pipe_separator=MODULE_PIPE_SEPARATOR,
         frame_logging_step=100,
         use_uvloop=False,
-        preview=False,
         debug=False,
         verbose=0,
     ):
@@ -102,7 +101,6 @@ class PyavApp(PyavCallbacksInterface):
             logger.info(f"Initialized module '{module_name}'")
 
         self._use_uvloop = use_uvloop
-        self._preview = preview
         self._debug = debug
         self._verbose = verbose
         self._manager = None
@@ -114,13 +112,8 @@ class PyavApp(PyavCallbacksInterface):
         logger.info(f"Module prefix: '{module_prefix}'")
         logger.info(f"Pipe separator: '{pipe_separator}'")
         logger.info(f"Module pipeline: {pipelines}")
-        logger.info(f"Preview flag: {preview}")
         logger.info(f"Debug flag: {debug}")
         logger.info(f"Verbose level: {verbose}")
-
-    @property
-    def preview(self) -> bool:
-        return self._preview
 
     @property
     def debug(self) -> bool:
@@ -185,7 +178,10 @@ class PyavApp(PyavCallbacksInterface):
 
     @override
     async def on_image(self, image: ndarray) -> OnImageResult:
-        return image
+        buffer = image
+        for module in self._modules:
+            buffer = await module.frame(buffer)
+        return buffer
 
 
 def pyav_main(args: Namespace, printer: Callable[..., None] = print) -> int:
@@ -201,7 +197,6 @@ def pyav_main(args: Namespace, printer: Callable[..., None] = print) -> int:
     assert isinstance(args.module_prefix, str)
     assert isinstance(args.pipe_separator, str)
     assert isinstance(args.use_uvloop, bool)
-    assert isinstance(args.preview, bool)
     assert isinstance(args.debug, bool)
     assert isinstance(args.verbose, int)
 
@@ -217,7 +212,6 @@ def pyav_main(args: Namespace, printer: Callable[..., None] = print) -> int:
         pipe_separator=args.pipe_separator,
         frame_logging_step=100,
         use_uvloop=args.use_uvloop,
-        preview=args.preview,
         debug=args.debug,
         verbose=args.verbose,
     )

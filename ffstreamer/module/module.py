@@ -38,10 +38,10 @@ class Module(
         except BaseException as e:
             self.logger.exception(e)
 
-    def frame(self, data: Any) -> Any:
+    async def frame(self, data: Any) -> Any:
         if not self.has_on_frame:
             return data
-        return self.on_frame(data)
+        return await self.on_frame(data)
 
 
 def find_and_strip_module_prefix(prefix=MODULE_NAME_PREFIX) -> List[str]:

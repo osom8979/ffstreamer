@@ -114,7 +114,16 @@ Demonstration:
         rtsp://localhost:8554/stream
 """
 
-CMDS = (CMD_PIXELS, CMD_FILES, CMD_MODULES, CMD_LIST, CMD_INSPECT, CMD_PIPE)
+CMD_PYAV: Final[str] = "pyav"
+CMD_PYAV_HELP: Final[str] = "Run the pipeline for pyav"
+CMD_PYAV_EPILOG = f"""
+Examples:
+
+  Bypass from RTSP to RTSP.
+    $ {PROG} {CMD_PIPE} "rtsp://ip-camera/stream" "rtsp://localhost:8554/stream"
+"""
+
+CMDS = (CMD_PIXELS, CMD_FILES, CMD_MODULES, CMD_LIST, CMD_INSPECT, CMD_PIPE, CMD_PYAV)
 
 DEFAULT_SEVERITY: Final[str] = SEVERITY_NAME_INFO
 DEFAULT_MODULE_PREFIX: Final[str] = MODULE_NAME_PREFIX
@@ -174,16 +183,7 @@ def add_inspect_parser(subparsers) -> None:
     parser.add_argument("source", help="Source URL")
 
 
-def add_pipe_parser(subparsers) -> None:
-    # noinspection SpellCheckingInspection
-    parser = subparsers.add_parser(
-        name=CMD_PIPE,
-        help=CMD_PIPE_HELP,
-        formatter_class=RawDescriptionHelpFormatter,
-        epilog=CMD_PIPE_EPILOG,
-    )
-    assert isinstance(parser, ArgumentParser)
-
+def add_ffmpeg_commandline_arguments(parser: ArgumentParser) -> None:
     parser.add_argument(
         "--recv-commandline",
         "-i",
@@ -197,6 +197,8 @@ def add_pipe_parser(subparsers) -> None:
         help="Commandline arguments of the FFmpeg send pipeline",
     )
 
+
+def add_ffmpeg_options_arguments(parser: ArgumentParser) -> None:
     parser.add_argument(
         "--pixel-format",
         default=DEFAULT_PIXEL_FORMAT,
@@ -211,20 +213,16 @@ def add_pipe_parser(subparsers) -> None:
         help=f"Result file format (default: '{DEFAULT_FILE_FORMAT}')",
     )
 
-    parser.add_argument(
-        "--preview",
-        "-p",
-        action="store_true",
-        default=False,
-        help="Display the preview window",
-    )
 
+def add_pipeline_arguments(parser: ArgumentParser) -> None:
     parser.add_argument(
         "--pipe-separator",
         default=MODULE_PIPE_SEPARATOR,
         help=f"The module's pipeline separator (default: '{MODULE_PIPE_SEPARATOR}')",
     )
 
+
+def add_pipeline_positional_arguments(parser: ArgumentParser) -> None:
     parser.add_argument(
         "source",
         help="Input source URL",
@@ -238,6 +236,35 @@ def add_pipe_parser(subparsers) -> None:
         nargs=REMAINDER,
         help="Module pipelines arguments",
     )
+
+
+def add_pipe_parser(subparsers) -> None:
+    # noinspection SpellCheckingInspection
+    parser = subparsers.add_parser(
+        name=CMD_PIPE,
+        help=CMD_PIPE_HELP,
+        formatter_class=RawDescriptionHelpFormatter,
+        epilog=CMD_PIPE_EPILOG,
+    )
+    assert isinstance(parser, ArgumentParser)
+    add_ffmpeg_commandline_arguments(parser)
+    add_ffmpeg_options_arguments(parser)
+    add_pipeline_arguments(parser)
+    add_pipeline_positional_arguments(parser)
+
+
+def add_pyav_parser(subparsers) -> None:
+    # noinspection SpellCheckingInspection
+    parser = subparsers.add_parser(
+        name=CMD_PYAV,
+        help=CMD_PYAV_HELP,
+        formatter_class=RawDescriptionHelpFormatter,
+        epilog=CMD_PYAV_EPILOG,
+    )
+    assert isinstance(parser, ArgumentParser)
+    add_ffmpeg_options_arguments(parser)
+    add_pipeline_arguments(parser)
+    add_pipeline_positional_arguments(parser)
 
 
 def default_argument_parser() -> ArgumentParser:
@@ -328,6 +355,7 @@ def default_argument_parser() -> ArgumentParser:
     add_list_parser(subparsers)
     add_inspect_parser(subparsers)
     add_pipe_parser(subparsers)
+    add_pyav_parser(subparsers)
     return parser
 
 

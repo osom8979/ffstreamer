@@ -46,7 +46,6 @@ class PipeApp:
         pipe_separator=MODULE_PIPE_SEPARATOR,
         frame_logging_step=100,
         use_uvloop=False,
-        preview=False,
         debug=False,
         verbose=0,
     ):
@@ -104,7 +103,6 @@ class PipeApp:
         )
 
         self._use_uvloop = use_uvloop
-        self._preview = preview
         self._debug = debug
         self._verbose = verbose
 
@@ -117,13 +115,8 @@ class PipeApp:
         logger.info(f"Module prefix: '{module_prefix}'")
         logger.info(f"Pipe separator: '{pipe_separator}'")
         logger.info(f"Module pipeline: {pipelines}")
-        logger.info(f"Preview flag: {preview}")
         logger.info(f"Debug flag: {debug}")
         logger.info(f"Verbose level: {verbose}")
-
-    @property
-    def preview(self) -> bool:
-        return self._preview
 
     @property
     def debug(self) -> bool:
@@ -136,8 +129,8 @@ class PipeApp:
     async def on_frame(self, data: Optional[bytes]) -> None:
         if data is not None:
             buffer = data
-            for i, module in enumerate(self._modules):
-                buffer = module.frame(buffer)
+            for module in self._modules:
+                buffer = await module.frame(buffer)
             self._sender.stdin.write(buffer)
         await self._sender.stdin.drain()
 
@@ -198,7 +191,6 @@ def pipe_main(args: Namespace, printer: Callable[..., None] = print) -> int:
     assert isinstance(args.module_prefix, str)
     assert isinstance(args.pipe_separator, str)
     assert isinstance(args.use_uvloop, bool)
-    assert isinstance(args.preview, bool)
     assert isinstance(args.debug, bool)
     assert isinstance(args.verbose, int)
 
@@ -216,7 +208,6 @@ def pipe_main(args: Namespace, printer: Callable[..., None] = print) -> int:
         pipe_separator=args.pipe_separator,
         frame_logging_step=100,
         use_uvloop=args.use_uvloop,
-        preview=args.preview,
         debug=args.debug,
         verbose=args.verbose,
     )

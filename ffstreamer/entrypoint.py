@@ -8,6 +8,7 @@ from ffstreamer.apps.inspect import inspect_main
 from ffstreamer.apps.modules import modules_main
 from ffstreamer.apps.pipe import pipe_main
 from ffstreamer.apps.pixels import pixels_main
+from ffstreamer.apps.pyav import pyav_main
 from ffstreamer.arguments import (
     CMD_FILES,
     CMD_INSPECT,
@@ -15,6 +16,7 @@ from ffstreamer.arguments import (
     CMD_MODULES,
     CMD_PIPE,
     CMD_PIXELS,
+    CMD_PYAV,
     CMDS,
     get_default_arguments,
 )
@@ -88,6 +90,8 @@ def main(
             return pipe_main(args, printer=printer)
         elif cmd == CMD_PIXELS:
             return pixels_main(args, printer=printer)
+        elif cmd == CMD_PYAV:
+            return pyav_main(args, printer=printer)
         else:
             assert False, "Inaccessible section"
     except BaseException as e:
