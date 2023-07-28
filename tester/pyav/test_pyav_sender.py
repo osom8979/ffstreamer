@@ -15,15 +15,17 @@ from ffstreamer.pyav.pyav_sender import create_pyav_sender_process
 
 class PyavSenderTestCase(TestCase):
     def test_default(self):
-        with TemporaryDirectory() as tempdir:
+        with TemporaryDirectory(suffix="ffstreamer.pyav") as tempdir:
+            self.assertTrue(os.path.isdir(tempdir))
+
             file_format = "mp4"
             file_name = f"video.{file_format}"
             video_path = path.join(tempdir, file_name)
             self.assertFalse(os.path.isfile(video_path))
 
-            shape = (100, 50, 3)
+            shape = 100, 50, 3
             item_size = shape[0] * shape[1] * shape[2]
-            queue = SpscQueue(100, item_size)
+            queue = SpscQueue(10, item_size)
             black_image = zeros(shape, dtype=uint8)
             done = Event()
             process = create_pyav_sender_process(

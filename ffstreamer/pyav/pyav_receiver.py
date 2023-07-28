@@ -2,6 +2,7 @@
 
 from multiprocessing import Process
 from multiprocessing.synchronize import Event
+from queue import Full
 
 from av import open as av_open  # noqa
 
@@ -9,9 +10,23 @@ from ffstreamer.memory.spsc_queue import SpscQueueProducer
 
 
 class PyavReceiver:
-    def __init__(self, source: str, receiver_producer: SpscQueueProducer, done: Event):
-        self._format_options = {"rtsp_transport": "tcp", "fflags": "nobuffer"}
-        self._input_container = av_open(source, options=self._format_options)
+    def __init__(
+        self,
+        source: str,
+        receiver_producer: SpscQueueProducer,
+        done: Event,
+        *,
+        put_timeout=32.0,
+        drop_if_put_timeout=True,
+    ):
+        if source.startswith("rtsp://"):
+            format_options = {"rtsp_transport": "tcp", "fflags": "nobuffer"}
+        else:
+            format_options = None
+
+        self._put_timeout = put_timeout
+        self._drop_if_put_timeout = drop_if_put_timeout
+        self._input_container = av_open(source, mode="r", options=format_options)
         self._receiver_producer = receiver_producer
         self._done = done
 
@@ -26,27 +41,36 @@ class PyavReceiver:
         self._video_stream.thread_type = "AUTO"
         self._video_stream.codec_context.low_delay = True
 
-    def run(self):
+    def run(self) -> None:
         while not self._done.is_set():
             for packet in self._input_container.demux(self._video_stream):
+                if self._done.is_set():
+                    return
+
                 # We need to skip the "flushing" packets that `demux` generates.
                 if packet.dts is None:
                     continue
 
-                # Discard frames from previous packets to get the latest frame.
-                frames = [frame for frame in packet.decode()]
-                if not frames:
-                    continue
+                for frame in packet.decode():
+                    if not frame:
+                        continue
 
-                if len(frames) >= 2:
-                    # Discard frames from previous packets to get the latest frame.
-                    pass
+                    image = frame.to_ndarray(format="bgr24")
+                    data = image.tobytes()
 
-                latest_frame = frames[-1]
-                image = latest_frame.to_ndarray(format="bgr24")
-                data = image.tobytes()
+                    while True:
+                        if self._done.is_set():
+                            return
 
-                self._receiver_producer.put(data)
+                        try:
+                            self._receiver_producer.put(data, timeout=self._put_timeout)
+                        except Full:
+                            if self._drop_if_put_timeout:
+                                break
+                            else:
+                                continue
+                        else:
+                            break
 
     def close(self) -> None:
         self._input_container.close()

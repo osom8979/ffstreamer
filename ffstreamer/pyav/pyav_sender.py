@@ -2,6 +2,7 @@
 
 from multiprocessing import Process
 from multiprocessing.synchronize import Event
+from queue import Empty
 from typing import Tuple
 
 from av import VideoFrame  # noqa
@@ -20,10 +21,13 @@ class PyavSender:
         shape: Tuple[int, int, int],
         sender_consumer: SpscQueueConsumer,
         done: Event,
+        *,
+        get_timeout=4.0,
     ):
         if shape[-1] != 3:
             raise ValueError("Only 3 channels are supported")
 
+        self._get_timeout = get_timeout
         self._output_container = av_open(destination, mode="w", format=file_format)
         self._shape = shape
         self._sender_consumer = sender_consumer
@@ -41,7 +45,14 @@ class PyavSender:
 
     def run(self) -> None:
         while not self._done.is_set():
-            data = self._sender_consumer.get()
+            try:
+                data = self._sender_consumer.get(timeout=self._get_timeout)
+            except Empty:
+                continue
+
+            assert isinstance(data, bytes)
+            assert len(data) >= 1
+
             image: NDArray[uint8] = ndarray(self._shape, dtype=uint8, buffer=data)
             frame = VideoFrame.from_ndarray(image, format="bgr24")
             for packet in self._output_stream.encode(frame):
