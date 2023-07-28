@@ -5,7 +5,7 @@ from unittest import TestCase, main
 
 from ffstreamer.ffmpeg.ffprobe import inspect_source
 from ffstreamer.ffmpeg.static_lib import StaticFFmpegPaths
-from tester.ffmpeg.assets import get_big_buck_bunny_trailer_path
+from tester.assets import get_big_buck_bunny_trailer_path
 
 
 class FFprobeTestCase(TestCase):

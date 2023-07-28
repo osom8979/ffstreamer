@@ -4,11 +4,13 @@
 adts
 asctime
 avioflags
+bgra
 bluenviron
 datefmt
 demuxing
 discardcorrupt
 dostr
+dtype
 fflags
 ffmpeg
 ffplay

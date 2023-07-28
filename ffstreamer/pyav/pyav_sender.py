@@ -7,6 +7,7 @@ from typing import Tuple
 from av import VideoFrame  # noqa
 from av import open as av_open  # noqa
 from numpy import ndarray, uint8
+from numpy.typing import NDArray
 
 from ffstreamer.memory.spsc_queue import SpscQueueConsumer
 
@@ -15,6 +16,7 @@ class PyavSender:
     def __init__(
         self,
         destination: str,
+        file_format: str,
         shape: Tuple[int, int, int],
         sender_consumer: SpscQueueConsumer,
         done: Event,
@@ -22,7 +24,7 @@ class PyavSender:
         if shape[-1] != 3:
             raise ValueError("Only 3 channels are supported")
 
-        self._output_container = av_open(destination, mode="w", format="rtsp")
+        self._output_container = av_open(destination, mode="w", format=file_format)
         self._shape = shape
         self._sender_consumer = sender_consumer
         self._done = done
@@ -37,10 +39,10 @@ class PyavSender:
             "turn": "zerolatency",
         }
 
-    def run(self):
+    def run(self) -> None:
         while not self._done.is_set():
             data = self._sender_consumer.get()
-            image = ndarray(self._shape, dtype=uint8, buffer=data)
+            image: NDArray[uint8] = ndarray(self._shape, dtype=uint8, buffer=data)
             frame = VideoFrame.from_ndarray(image, format="bgr24")
             for packet in self._output_stream.encode(frame):
                 self._output_container.mux(packet)
@@ -53,11 +55,12 @@ class PyavSender:
 
 def _pyav_sender_main(
     destination: str,
+    file_format: str,
     shape: Tuple[int, int, int],
     sender_consumer: SpscQueueConsumer,
     done: Event,
 ) -> None:
-    receiver = PyavSender(destination, shape, sender_consumer, done)
+    receiver = PyavSender(destination, file_format, shape, sender_consumer, done)
     try:
         receiver.run()
     finally:
@@ -66,11 +69,12 @@ def _pyav_sender_main(
 
 def create_pyav_sender_process(
     destination: str,
+    file_format: str,
     shape: Tuple[int, int, int],
     sender_consumer: SpscQueueConsumer,
     done: Event,
 ) -> Process:
     return Process(
         target=_pyav_sender_main,
-        args=(destination, shape, sender_consumer, done),
+        args=(destination, file_format, shape, sender_consumer, done),
     )

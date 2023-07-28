@@ -27,7 +27,7 @@ from ffstreamer.ffmpeg.ffprobe import inspect_source_size
 from ffstreamer.logging.logging import logger
 from ffstreamer.module.module import Module, module_pipeline_splitter
 from ffstreamer.module.variables import MODULE_NAME_PREFIX, MODULE_PIPE_SEPARATOR
-from ffstreamer.pyav.pyav_callbacks import PyavCallbacksInterface
+from ffstreamer.pyav.pyav_callbacks import OnImageResult, PyavCallbacksInterface
 from ffstreamer.pyav.pyav_manager import PyavManager
 
 
@@ -55,7 +55,7 @@ class PyavApp(PyavCallbacksInterface):
         if bits_per_pixel % 8 != 0:
             raise ValueError("The pixel format only supports multiples of 8 bits")
 
-        if file_format.lower() == AUTOMATIC_DETECT_FILE_FORMAT:
+        if file_format.lower() == AUTOMATIC_DETECT_FILE_FORMAT.lower():
             file_format = detect_file_format(destination, ffmpeg_path)
 
         width, height = inspect_source_size(source, ffprobe_path)
@@ -167,6 +167,7 @@ class PyavApp(PyavCallbacksInterface):
             self._manager = PyavManager(
                 self._source,
                 self._destination,
+                self._file_format,
                 self._width,
                 self._height,
                 self._channels,
@@ -183,7 +184,7 @@ class PyavApp(PyavCallbacksInterface):
         self._manager.join_safe()
 
     @override
-    async def on_image(self, image: ndarray) -> ndarray:
+    async def on_image(self, image: ndarray) -> OnImageResult:
         return image
 
 

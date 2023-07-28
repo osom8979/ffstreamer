@@ -5,11 +5,16 @@ from multiprocessing.synchronize import Event
 from typing import Tuple
 
 from numpy import ndarray, uint8, zeros
+from numpy.typing import NDArray
 
 from ffstreamer.memory.spsc_queue import SpscQueueConsumer, SpscQueueProducer
 
 
 class PyavRouter:
+    _overlay: NDArray[uint8]
+    _overlay_mask: NDArray[uint8]
+    _overlay_real: NDArray[uint8]
+
     def __init__(
         self,
         shape: Tuple[int, int, int],
@@ -47,7 +52,7 @@ class PyavRouter:
         while not self._done.is_set():
             self._main()
 
-    def _main(self):
+    def _main(self) -> None:
         data = self._receiver_consumer.get()
 
         if not self._now_image_processing:
@@ -63,7 +68,7 @@ class PyavRouter:
                 self.update_overlay(overlay_data)
                 self._now_image_processing = False
 
-        image = ndarray(self._shape, dtype=uint8, buffer=data)
+        image: NDArray[uint8] = ndarray(self._shape, dtype=uint8, buffer=data)
         image[self._overlay_mask > 0] = self._overlay_real[self._overlay_mask > 0]
 
         self._sender_producer.put(image.tobytes())
