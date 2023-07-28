@@ -3,14 +3,18 @@
 
 adts
 asctime
+autodect
 avioflags
 bgra
+bitexact
 bluenviron
 datefmt
 demuxing
 discardcorrupt
 dostr
+dropchanged
 dtype
+extradata
 fflags
 ffmpeg
 ffplay
@@ -25,12 +29,18 @@ meipass
 muxing
 nobuffer
 nocov
+packetization
 paletted
+psnr
 pyav
 pythonpath
+qpel
+qscale
+ratecontrol
 rawvideo
 rtspatt
 spsc
+strftime
 tznow
 ullaakut
 vasdt
