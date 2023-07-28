@@ -1,15 +1,13 @@
 # -*- coding: utf-8 -*-
 
 from asyncio import AbstractEventLoop, get_event_loop, run_coroutine_threadsafe
-from multiprocessing import Event as NewEvent
-from multiprocessing.synchronize import Event
-from typing import Final, Optional, Tuple
+from typing import Optional, Tuple
 
-from numpy import bool_ as np_bool
-from numpy import concatenate, ndarray, uint8, where
+from numpy import ndarray, uint8
 from numpy.typing import NDArray
 
 from ffstreamer.memory.spsc_queue import SpscQueue
+from ffstreamer.np.mask import DEFAULT_CHROMA_COLOR, generate_mask, merge_to_bgra32
 from ffstreamer.pyav.pyav_callbacks import (
     OnImageResult,
     PyavCallbacks,
@@ -18,40 +16,7 @@ from ffstreamer.pyav.pyav_callbacks import (
 from ffstreamer.pyav.pyav_receiver import create_pyav_receiver_process
 from ffstreamer.pyav.pyav_router import create_pyav_router_process
 from ffstreamer.pyav.pyav_sender import create_pyav_sender_process
-
-BLACK_COLOR: Final[Tuple[int, int, int]] = (0, 0, 0)
-DEFAULT_CHROMA_COLOR: Final[Tuple[int, int, int]] = BLACK_COLOR
-CHANNEL_MIN: Final[int] = 0
-CHANNEL_MAX: Final[int] = 255
-
-
-def _create_event() -> Event:
-    return NewEvent()
-
-
-def generate_mask(
-    image: NDArray[uint8],
-    chroma_color=DEFAULT_CHROMA_COLOR,
-) -> NDArray[uint8]:
-    assert image.dtype == uint8
-    assert len(image.shape) == 3
-    assert image.shape[-1] == 3
-
-    channels_cmp: NDArray[np_bool] = image == chroma_color
-    pixel_cmp: NDArray[np_bool] = channels_cmp.all(axis=-1, keepdims=True)
-    return where(pixel_cmp, CHANNEL_MIN, CHANNEL_MAX)
-
-
-def merge_to_bgra32(image: NDArray[uint8], mask: NDArray[uint8]) -> NDArray[uint8]:
-    assert image.dtype == uint8
-    assert len(image.shape) == 3
-    assert image.shape[-1] == 3
-
-    assert mask.dtype == uint8
-    assert len(mask.shape) == 3
-    assert mask.shape[-1] == 1
-
-    return concatenate((image, mask), axis=-1)
+from ffstreamer.sync.event import create_event
 
 
 class PyavManager:
@@ -100,10 +65,10 @@ class PyavManager:
         sender_producer = self._sender.producer
         sender_consumer = self._sender.consumer
 
-        self._manager_done = _create_event()
-        self._receiver_done = _create_event()
-        self._router_done = _create_event()
-        self._sender_done = _create_event()
+        self._manager_done = create_event()
+        self._receiver_done = create_event()
+        self._router_done = create_event()
+        self._sender_done = create_event()
 
         self._receiver_process = create_pyav_receiver_process(
             source=source,

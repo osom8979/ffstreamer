@@ -1,10 +1,28 @@
 # -*- coding: utf-8 -*-
 
-from typing import Tuple
+from typing import Final, Tuple
 
 from numpy import bool_ as np_bool
-from numpy import uint8
+from numpy import concatenate, uint8, where
 from numpy.typing import NDArray
+
+BLACK_COLOR: Final[Tuple[int, int, int]] = (0, 0, 0)
+DEFAULT_CHROMA_COLOR: Final[Tuple[int, int, int]] = BLACK_COLOR
+CHANNEL_MIN: Final[int] = 0
+CHANNEL_MAX: Final[int] = 255
+
+
+def generate_mask(
+    image: NDArray[uint8],
+    chroma_color=DEFAULT_CHROMA_COLOR,
+) -> NDArray[uint8]:
+    assert image.dtype == uint8
+    assert len(image.shape) == 3
+    assert image.shape[-1] == 3
+
+    channels_cmp: NDArray[np_bool] = image == chroma_color
+    pixel_cmp: NDArray[np_bool] = channels_cmp.all(axis=-1, keepdims=True)
+    return where(pixel_cmp, CHANNEL_MIN, CHANNEL_MAX)
 
 
 def split_mask_on_off(mask: NDArray[uint8]) -> Tuple[NDArray[uint8], NDArray[uint8]]:
@@ -24,3 +42,15 @@ def split_mask_on_off(mask: NDArray[uint8]) -> Tuple[NDArray[uint8], NDArray[uin
     assert mask_off.dtype == uint8
 
     return mask_on, mask_off  # type: ignore[return-value]
+
+
+def merge_to_bgra32(image: NDArray[uint8], mask: NDArray[uint8]) -> NDArray[uint8]:
+    assert image.dtype == uint8
+    assert len(image.shape) == 3
+    assert image.shape[-1] == 3
+
+    assert mask.dtype == uint8
+    assert len(mask.shape) == 3
+    assert mask.shape[-1] == 1
+
+    return concatenate((image, mask), axis=-1)

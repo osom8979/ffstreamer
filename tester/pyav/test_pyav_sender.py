@@ -26,6 +26,7 @@ class PyavSenderTestCase(TestCase):
             shape = 100, 50, 3
             item_size = shape[0] * shape[1] * shape[2]
             queue = SpscQueue(10, item_size)
+            video_frames = 1000
             black_image = zeros(shape, dtype=uint8)
             done = Event()
             process = create_pyav_sender_process(
@@ -40,7 +41,7 @@ class PyavSenderTestCase(TestCase):
             black_image_size = len(black_image.tobytes())
             self.assertEqual(black_image_size, item_size)
 
-            for i in range(queue.consumer.maxsize):
+            for _ in range(video_frames):
                 queue.producer.put(black_image.tobytes())
 
             done.set()
