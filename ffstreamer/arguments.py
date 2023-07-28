@@ -116,14 +116,24 @@ Demonstration:
 
 CMD_PYAV: Final[str] = "pyav"
 CMD_PYAV_HELP: Final[str] = "Run the pipeline for pyav"
-CMD_PYAV_EPILOG = f"""
-Examples:
 
-  Bypass from RTSP to RTSP.
-    $ {PROG} {CMD_PIPE} "rtsp://ip-camera/stream" "rtsp://localhost:8554/stream"
-"""
+CMD_IO: Final[str] = "io"
+CMD_IO_HELP: Final[str] = "Run the pipeline for io"
 
-CMDS = (CMD_PIXELS, CMD_FILES, CMD_MODULES, CMD_LIST, CMD_INSPECT, CMD_PIPE, CMD_PYAV)
+CMD_RTSP: Final[str] = "rtsp"
+CMD_RTSP_HELP: Final[str] = "Run the pipeline for rtsp"
+
+CMDS = (
+    CMD_FILES,
+    CMD_INSPECT,
+    CMD_IO,
+    CMD_LIST,
+    CMD_MODULES,
+    CMD_PIPE,
+    CMD_PIXELS,
+    CMD_PYAV,
+    CMD_RTSP,
+)
 
 DEFAULT_SEVERITY: Final[str] = SEVERITY_NAME_INFO
 DEFAULT_MODULE_PREFIX: Final[str] = MODULE_NAME_PREFIX
@@ -255,12 +265,25 @@ def add_pipe_parser(subparsers) -> None:
 
 def add_pyav_parser(subparsers) -> None:
     # noinspection SpellCheckingInspection
-    parser = subparsers.add_parser(
-        name=CMD_PYAV,
-        help=CMD_PYAV_HELP,
-        formatter_class=RawDescriptionHelpFormatter,
-        epilog=CMD_PYAV_EPILOG,
-    )
+    parser = subparsers.add_parser(name=CMD_PYAV, help=CMD_PYAV_HELP)
+    assert isinstance(parser, ArgumentParser)
+    add_ffmpeg_options_arguments(parser)
+    add_pipeline_arguments(parser)
+    add_pipeline_positional_arguments(parser)
+
+
+def add_io_parser(subparsers) -> None:
+    # noinspection SpellCheckingInspection
+    parser = subparsers.add_parser(name=CMD_IO, help=CMD_IO_HELP)
+    assert isinstance(parser, ArgumentParser)
+    add_ffmpeg_options_arguments(parser)
+    add_pipeline_arguments(parser)
+    add_pipeline_positional_arguments(parser)
+
+
+def add_rtsp_parser(subparsers) -> None:
+    # noinspection SpellCheckingInspection
+    parser = subparsers.add_parser(name=CMD_RTSP, help=CMD_RTSP_HELP)
     assert isinstance(parser, ArgumentParser)
     add_ffmpeg_options_arguments(parser)
     add_pipeline_arguments(parser)
@@ -356,6 +379,8 @@ def default_argument_parser() -> ArgumentParser:
     add_inspect_parser(subparsers)
     add_pipe_parser(subparsers)
     add_pyav_parser(subparsers)
+    add_io_parser(subparsers)
+    add_rtsp_parser(subparsers)
     return parser
 
 

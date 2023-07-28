@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
 import os
+from errno import EAGAIN
 from asyncio import get_running_loop
 from concurrent.futures.thread import ThreadPoolExecutor
-from errno import EAGAIN
 from threading import Event
 from time import sleep
 from typing import Final, List, Optional, Union
@@ -17,7 +17,6 @@ from numpy import ndarray, uint8
 from numpy.typing import NDArray
 
 from ffstreamer.logging.logging import logger
-from ffstreamer.pyav.pyav_callbacks import PyavCallbacks, PyavCallbacksInterface
 from ffstreamer.pyav.pyav_helper import get_stream
 from ffstreamer.pyav.pyav_options import (
     REALTIME_FORMATS,
@@ -28,6 +27,28 @@ from ffstreamer.pyav.pyav_options import (
 PACKET_TYPE_VIDEO: Final[str] = "video"
 PACKET_TYPE_AUDIO: Final[str] = "audio"
 AUDIO_PTIME: Final[float] = 0.020  # 20ms audio packetization
+
+
+def find_video_stream(container: OutputContainer, index: int) -> Stream:
+    # 'container.streams.video' doesn't work when using 'add_stream' method.
+    for stream in container.streams:
+        if stream.type == PACKET_TYPE_VIDEO:
+            if index == 0:
+                return stream
+            else:
+                index -= 1
+    raise IndexError("Not found video stream")
+
+
+def find_audio_stream(container: OutputContainer, index: int) -> Stream:
+    # 'container.streams.audio' doesn't work when using 'add_stream' method.
+    for stream in container.streams:
+        if stream.type == PACKET_TYPE_AUDIO:
+            if index == 0:
+                return stream
+            else:
+                index -= 1
+    raise IndexError("Not found video stream")
 
 
 class AlreadyStateError(Exception):
@@ -43,32 +64,29 @@ class NotReadyStateError(Exception):
 class PyavIo:
     _source: Union[str, int]
     _destination: Optional[Union[str, PyavHlsOutputOptions]]
-    _callbacks: PyavCallbacksInterface
     _options: PyavOptions
     _input_container: Optional[InputContainer]
     _output_container: Optional[OutputContainer]
     _streams: List[Stream]
     _throttle_playback: bool
     _re_request_wait_seconds: float
-    _thread_quit: Event
+    _quit: Event
 
     def __init__(
         self,
         source: Union[str, int],
         destination: Optional[Union[str, PyavHlsOutputOptions]] = None,
-        callbacks: Optional[PyavCallbacksInterface] = None,
         options: Optional[PyavOptions] = None,
     ):
         self._source = source
         self._destination = destination
-        self._callbacks = callbacks if callbacks else PyavCallbacks()
         self._options = options if options else PyavOptions()
         self._input_container = None
         self._output_container = None
         self._streams = list()
         self._throttle_playback = False
         self._re_request_wait_seconds = 0.001
-        self._thread_quit = Event()
+        self._quit = Event()
 
     @property
     def throttle_playback(self) -> bool:
@@ -117,6 +135,10 @@ class PyavIo:
         )
         assert isinstance(input_container, InputContainer)
         logger.info("Input container opened successfully")
+
+        if self._options.input.init_callback:
+            self._options.input.init_callback(input_container)
+
         return input_container
 
     def _create_output_container(
@@ -171,10 +193,12 @@ class PyavIo:
             output_container.add_stream(template=video_stream)  # noqa
         if audio_stream is not None:
             output_container.add_stream(template=audio_stream)  # noqa
+        if self._options.output.init_callback:
+            self._options.output.init_callback(output_container)
 
         return output_container
 
-    def _create_media(self) -> None:
+    def _create_pyav(self) -> None:
         if self._destination and isinstance(self._destination, PyavHlsOutputOptions):
             cache_dir = self._destination.cache_dir
             if not os.path.isdir(cache_dir):
@@ -207,9 +231,6 @@ class PyavIo:
                 speedup_tricks=speedup_tricks,
             )
 
-            assert video_stream is not None
-            assert audio_stream is not None
-
             streams = [s for s in (video_stream, audio_stream) if s is not None]
 
             if video_stream is not None or audio_stream is not None:
@@ -235,7 +256,7 @@ class PyavIo:
             self._streams = streams
             self._throttle_playback = throttle_playback
 
-    def _destroy_media(self) -> None:
+    def _destroy_pyav(self) -> None:
         if self._input_container:
             self._input_container.close()
             self._input_container = None
@@ -249,39 +270,39 @@ class PyavIo:
         self._streams.clear()
         self._throttle_playback = False
 
-    def stop(self) -> None:
-        self._thread_quit.set()
-
-    def is_open(self) -> bool:
+    def is_open_pyav(self) -> bool:
         return self._input_container is not None
 
-    def open(self) -> None:
-        if self.is_open():
+    def stop_pyav(self) -> None:
+        self._quit.set()
+
+    def open_pyav(self) -> None:
+        if self.is_open_pyav():
             raise AlreadyStateError()
 
         try:
             assert self._input_container is None
-            self._create_media()
+            self._create_pyav()
         except BaseException as e:
             logger.error(e)
             if self._input_container:
-                self._destroy_media()
+                self._destroy_pyav()
             raise
 
-    def close(self) -> None:
-        if not self.is_open():
+    def close_pyav(self) -> None:
+        if not self.is_open_pyav():
             raise NotReadyStateError()
 
         assert self._input_container is not None
-        self._destroy_media()
+        self._destroy_pyav()
 
-    def run(self) -> None:
-        if not self.is_open():
+    def _run_pyav_main(self) -> None:
+        if not self.is_open_pyav():
             raise NotReadyStateError()
 
         assert self._input_container is not None
         for packet in self._input_container.demux(*self._streams):
-            if self._thread_quit.is_set():
+            if self._quit.is_set():
                 raise InterruptedError
 
             assert isinstance(packet, Packet)
@@ -299,21 +320,21 @@ class PyavIo:
 
     def on_video_packet(self, packet: Packet) -> None:
         for frame in packet.decode():
-            if self._thread_quit.is_set():
+            if self._quit.is_set():
                 raise InterruptedError
             result = self.on_video_frame(frame)
             if self._output_container is not None:
-                output_stream = self._output_container.streams.video[0]
+                output_stream = find_video_stream(self._output_container, 0)
                 for output_packet in output_stream.encode(result):
                     self._output_container.mux(output_packet)
 
     def on_audio_packet(self, packet: Packet) -> None:
         for frame in packet.decode():
-            if self._thread_quit.is_set():
+            if self._quit.is_set():
                 raise InterruptedError
             result = self.on_audio_frame(frame)
             if self._output_container is not None:
-                output_stream = self._output_container.streams.audio[0]
+                output_stream = find_audio_stream(self._output_container, 0)
                 for output_packet in output_stream.encode(result):
                     self._output_container.mux(output_packet)
 
@@ -339,24 +360,21 @@ class PyavIo:
         assert self
         return sound
 
-    def _thread_main(self) -> None:
-        self.open()
-        try:
-            while not self._thread_quit.is_set():
-                try:
-                    self.run()
-                except (AVError, StopIteration) as e:
-                    if isinstance(e, FFmpegError) and e.errno == EAGAIN:
-                        sleep(self._re_request_wait_seconds)
-                        continue
-                    else:
-                        raise
-                except InterruptedError:
-                    logger.info(f"{self.class_name} Interrupt signal detected")
-                    break
-        finally:
-            self.close()
+    def run_pyav(self) -> None:
+        while not self._quit.is_set():
+            try:
+                self._run_pyav_main()
+            except (AVError, StopIteration) as e:
+                if isinstance(e, FFmpegError) and e.errno == EAGAIN:
+                    sleep(self._re_request_wait_seconds)
+                    continue
+                else:
+                    raise
+            except InterruptedError:
+                logger.info(f"{self.class_name} Interrupt signal detected")
+                break
 
-    async def run_until_complete(self) -> None:
+    async def run_pyav_until_complete(self) -> None:
         with ThreadPoolExecutor(max_workers=1) as executor:
-            await get_running_loop().run_in_executor(executor, self._thread_main)
+            loop = get_running_loop()
+            await loop.run_in_executor(executor, self.run_pyav)

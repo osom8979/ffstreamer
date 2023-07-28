@@ -5,18 +5,22 @@ from typing import Callable, List, Optional
 
 from ffstreamer.apps.files import files_main
 from ffstreamer.apps.inspect import inspect_main
+from ffstreamer.apps.io import io_main
 from ffstreamer.apps.modules import modules_main
 from ffstreamer.apps.pipe import pipe_main
 from ffstreamer.apps.pixels import pixels_main
 from ffstreamer.apps.pyav import pyav_main
+from ffstreamer.apps.rtsp import rtsp_main
 from ffstreamer.arguments import (
     CMD_FILES,
     CMD_INSPECT,
+    CMD_IO,
     CMD_LIST,
     CMD_MODULES,
     CMD_PIPE,
     CMD_PIXELS,
     CMD_PYAV,
+    CMD_RTSP,
     CMDS,
     get_default_arguments,
 )
@@ -92,6 +96,10 @@ def main(
             return pixels_main(args, printer=printer)
         elif cmd == CMD_PYAV:
             return pyav_main(args, printer=printer)
+        elif cmd == CMD_IO:
+            return io_main(args, printer=printer)
+        elif cmd == CMD_RTSP:
+            return rtsp_main(args, printer=printer)
         else:
             assert False, "Inaccessible section"
     except BaseException as e:

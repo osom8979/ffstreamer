@@ -3,7 +3,9 @@
 import os.path
 from dataclasses import dataclass, field
 from tempfile import mkdtemp
-from typing import Any, Dict, Final, List, Literal, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Final, List, Literal, Optional, Tuple, Union
+
+from av.container import InputContainer, OutputContainer
 
 # noinspection SpellCheckingInspection
 REALTIME_FORMATS = (
@@ -139,6 +141,10 @@ class PyavInputOptions(CommonMediaOptions):
     """The audio index of the InputContainer.
     """
 
+    init_callback: Optional[Callable[[InputContainer], None]] = None
+    """Initialize callback.
+    """
+
 
 @dataclass
 class PyavOutputOptions(CommonMediaOptions):
@@ -148,6 +154,10 @@ class PyavOutputOptions(CommonMediaOptions):
 
     use_input_audio_template: bool = False
     """Use audio template from input container.
+    """
+
+    init_callback: Optional[Callable[[OutputContainer], None]] = None
+    """Initialize callback.
     """
 
 

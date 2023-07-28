@@ -43,6 +43,11 @@ class Module(
             return data
         return await self.on_frame(data)
 
+    def frame_sync(self, data: Any) -> Any:
+        if not self.has_on_frame:
+            return data
+        return self.on_frame_sync(data)
+
 
 def find_and_strip_module_prefix(prefix=MODULE_NAME_PREFIX) -> List[str]:
     modules = filter_module_names(prefix)
